@@ -106,7 +106,7 @@ fun SplashScreen() {
             Spacer(Modifier.height(8.dp))
 
             Text(
-                "NIDHI ONLINE",
+                "NIDHI • COMMAND CENTER",
                 color = Cyan,
                 fontSize = 16.sp
             )
