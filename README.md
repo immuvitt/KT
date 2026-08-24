@@ -1,36 +1,34 @@
-# Kuber Tijori (KT) — Paper Trading Build
+# Kuber Tijori (KT) — Frozen UI Final
 
-This is the actual KT Android project with the paper-trading order workflow added on top of the existing repository.
+This is the KT Android paper-trading project updated to follow the **frozen Kuber Tijori / Nidhi Online UI** supplied on 24 Aug 2026.
 
-## What works in this build
+## Frozen navigation
 
-- KT / Nidhi splash screen
-- Command Center dashboard
-- Start / Stop paper engine state
+- **Watchlist** — NIFTY, BANKNIFTY, FINNIFTY and stock quotes with mini charts.
+- **Orders** — New Paper Order, Open Orders, Trade History and an inline Positions view.
+- **KT Core** — Nidhi Command Center with bot status, P&L, last trade, NIFTY market card, Start/Stop Bot and Refresh Data.
+- **AI** — Nidhi Assistant, Smart Actions and Ask Nidhi prompts.
+- **Positions** — Open Positions and Performance.
+
+## Paper trading functionality retained
+
 - Virtual capital: ₹1,00,000
-- Manual paper BUY / SELL market orders
-- Symbol, price and quantity entry
-- Cash validation on BUY
-- Position validation on SELL
-- Average-price position tracking
-- Realized P&L calculation
-- Persistent order ledger and positions across app restarts
-- Orders screen
-- Positions screen
+- Paper BUY / SELL execution
+- Cash validation
+- Position validation
+- Weighted-average entry price
+- Realized and unrealized P&L
+- Local persistence across app restarts
 - Reset paper account
-- GitHub Actions debug APK build
+- No broker connection or real-money execution
 
-## Important
+## UI direction
 
-This is **paper trading only**. No broker credentials, real-money order routing, or live execution is included.
+The frozen UI is the design source of truth: near-black background, KT blue/cyan highlights, gold secondary actions, dark blue cards, cyan/gold status accents, compact market cards, mini sparkline charts, Nidhi branding, and the five-item bottom navigation.
 
-The order service is intentionally local so the Android app can be installed and verified immediately. A live market-data/broker adapter can later feed the same paper-order service without changing the order ledger UI.
+The manual order form is intentionally moved out of the main Command Center and into **Orders**, matching the frozen architecture.
 
-## Build on GitHub
-
-Push the project to `main`. The included `.github/workflows/android.yml` builds `app-debug.apk` and uploads it as the `kt-debug-apk` artifact.
-
-## Local build
+## Build
 
 ```bash
 ./gradlew assembleDebug
@@ -42,18 +40,8 @@ Windows:
 gradlew.bat assembleDebug
 ```
 
-## v0.4 — Paper Trading Ledger + Mark-to-Market
+## Important
 
-This update is built on the working paper-trading project and adds:
+The current environment used to package this source project could not download Gradle from `services.gradle.org`, so an APK was **not** generated here. The project source and Gradle wrapper are included for local Android Studio/Gradle build.
 
-- Finalized Kubēr Tijori logo artwork in splash, dashboard branding, and launcher assets.
-- Persistent paper orders and positions.
-- Manual LTP/mark-price updates for open positions.
-- Unrealized, realized, and total paper P&L on the Positions screen.
-- Weighted-average entry price when adding to an existing position.
-- Safer paper SELL validation and position reduction.
-- Clear separation between simulated execution and future live market-data/broker modules.
-
-### Current scope
-
-The app remains paper trading only. No real broker order is sent. The next module can replace the manual mark-price field with a live market-data adapter without changing the order ledger API.
+The market quotes shown in the UI are demo/paper values until the live market-data adapter is connected.
