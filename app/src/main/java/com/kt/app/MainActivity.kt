@@ -29,7 +29,6 @@ import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Button
@@ -45,7 +44,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -71,7 +69,6 @@ import java.util.Locale
 
 private val Bg = Color(0xFF05070A)
 private val CardBg = Color(0xFF111827)
-private val CardBg2 = Color(0xFF0D1524)
 private val Cyan = Color(0xFF00E5FF)
 private val Gold = Color(0xFFFFC107)
 private val Green = Color(0xFF33D17A)
@@ -94,7 +91,8 @@ data class Position(
     val symbol: String,
     val quantity: Int,
     val averagePrice: Double,
-    val realizedPnl: Double
+    val realizedPnl: Double,
+    val markPrice: Double
 )
 
 data class PaperState(
@@ -124,7 +122,10 @@ private class PaperTradingStore(context: Context) {
         val positionArray = runCatching { JSONArray(prefs.getString("positions", "[]")) }.getOrDefault(JSONArray())
         for (i in 0 until positionArray.length()) {
             val p = positionArray.getJSONObject(i)
-            positions += Position(p.getString("symbol"), p.getInt("quantity"), p.getDouble("averagePrice"), p.getDouble("realizedPnl"))
+            positions += Position(
+                p.getString("symbol"), p.getInt("quantity"), p.getDouble("averagePrice"),
+                p.getDouble("realizedPnl"), p.optDouble("markPrice", 0.0)
+            )
         }
         return PaperState(cash, orders, positions, running)
     }
@@ -142,6 +143,7 @@ private class PaperTradingStore(context: Context) {
             positions.put(JSONObject().apply {
                 put("symbol", p.symbol); put("quantity", p.quantity)
                 put("averagePrice", p.averagePrice); put("realizedPnl", p.realizedPnl)
+                put("markPrice", p.markPrice)
             })
         }
         prefs.edit()
@@ -152,10 +154,7 @@ private class PaperTradingStore(context: Context) {
             .apply()
     }
 
-    fun reset() {
-        prefs.edit().clear().apply()
-    }
-
+    fun reset() = prefs.edit().clear().apply()
     fun initialCapital() = initialCapital
 }
 
@@ -200,16 +199,17 @@ private fun KTApp() {
                         onStart = { state = state.copy(running = true).also(store::save) },
                         onStop = { state = state.copy(running = false).also(store::save) },
                         onOpenOrders = { screen = Screen.ORDERS },
-                        onPlaceOrder = { orderResult ->
-                            when (orderResult) {
-                                is OrderResult.Success -> state = orderResult.state.also(store::save)
-                                is OrderResult.Error -> Unit
+                        onPlaceOrder = { result -> if (result is OrderResult.Success) state = result.state.also(store::save) },
+                        onMarkPrice = { symbol, price ->
+                            val normalized = symbol.trim().uppercase(Locale.US)
+                            if (normalized.isNotBlank() && price > 0) {
+                                val updated = state.copy(positions = state.positions.map { p ->
+                                    if (p.symbol == normalized) p.copy(markPrice = price) else p
+                                })
+                                state = updated.also(store::save)
                             }
                         },
-                        onReset = {
-                            store.reset()
-                            state = store.load()
-                        },
+                        onReset = { store.reset(); state = store.load() },
                         modifier = Modifier.padding(padding)
                     )
                     Screen.ORDERS -> OrdersScreen(state.orders, modifier = Modifier.padding(padding))
@@ -240,10 +240,10 @@ private fun placeMarketOrder(state: PaperState, symbolInput: String, side: Side,
         if (cost > cash) return OrderResult.Error("Insufficient paper cash")
         cash -= cost
         val updated = if (existing == null) {
-            Position(symbol, quantity, price, 0.0)
+            Position(symbol, quantity, price, 0.0, price)
         } else {
             val totalQty = existing.quantity + quantity
-            Position(symbol, totalQty, ((existing.averagePrice * existing.quantity) + cost) / totalQty, existing.realizedPnl)
+            Position(symbol, totalQty, ((existing.averagePrice * existing.quantity) + cost) / totalQty, existing.realizedPnl, price)
         }
         positions.removeAll { it.symbol == symbol }
         positions += updated
@@ -253,22 +253,34 @@ private fun placeMarketOrder(state: PaperState, symbolInput: String, side: Side,
         val realized = existing.realizedPnl + (price - existing.averagePrice) * quantity
         val remaining = existing.quantity - quantity
         positions.removeAll { it.symbol == symbol }
-        if (remaining > 0) positions += existing.copy(quantity = remaining, realizedPnl = realized)
+        if (remaining > 0) positions += existing.copy(quantity = remaining, realizedPnl = realized, markPrice = price)
     }
 
-    val order = PaperOrder(System.currentTimeMillis(), symbol, side, quantity, price, System.currentTimeMillis())
+    val now = System.currentTimeMillis()
+    val order = PaperOrder(now, symbol, side, quantity, price, now)
     return OrderResult.Success(state.copy(cash = cash, orders = listOf(order) + state.orders, positions = positions))
 }
 
-private fun totalPnl(state: PaperState, markPrice: Double = 0.0): Double {
-    return state.positions.sumOf { p -> p.realizedPnl + if (markPrice > 0) (markPrice - p.averagePrice) * p.quantity else 0.0 }
-}
+private fun unrealizedPnl(position: Position): Double =
+    if (position.markPrice > 0) (position.markPrice - position.averagePrice) * position.quantity else 0.0
+
+private fun totalPnl(state: PaperState): Double =
+    state.positions.sumOf { it.realizedPnl + unrealizedPnl(it) }
 
 @Composable
 private fun SplashScreen() {
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Bg, Color(0xFF0B1220)))), contentAlignment = Alignment.Center) {
+    Box(
+        Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Bg, Color(0xFF0B1220)))),
+        contentAlignment = Alignment.Center
+    ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Image(painter = androidx.compose.ui.res.painterResource(com.kt.app.R.drawable.kt_robot), contentDescription = "Kuber Tijori robot", modifier = Modifier.size(180.dp), contentScale = ContentScale.Crop)
+            Image(
+                painter = androidx.compose.ui.res.painterResource(R.drawable.kt_logo),
+                contentDescription = "Kuber Tijori",
+                modifier = Modifier.size(230.dp),
+                contentScale = ContentScale.Fit
+            )
+            Spacer(Modifier.height(4.dp))
             Text("KT", color = Cyan, fontSize = 34.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Text("NIDHI ONLINE", color = Gold, fontSize = 17.sp, letterSpacing = 1.2.sp)
@@ -286,26 +298,26 @@ private fun Dashboard(
     onStop: () -> Unit,
     onOpenOrders: () -> Unit,
     onPlaceOrder: (OrderResult) -> Unit,
+    onMarkPrice: (String, Double) -> Unit,
     onReset: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var symbol by remember { mutableStateOf("NIFTY") }
     var price by remember { mutableStateOf("25000") }
     var quantity by remember { mutableStateOf("50") }
+    var markPrice by remember { mutableStateOf("25000") }
     var side by remember { mutableStateOf(Side.BUY) }
     var message by remember { mutableStateOf("") }
     val lastTrade = state.orders.firstOrNull()
     val pnl = totalPnl(state)
 
-    Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(Bg).padding(horizontal = 20.dp, vertical = 18.dp)
-    ) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(Bg).padding(horizontal = 20.dp, vertical = 18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("KT", color = Cyan, fontSize = 34.sp, fontWeight = FontWeight.Bold)
                 Text("Nidhi • Command Center", color = Gold, fontSize = 18.sp)
             }
-            Image(painter = androidx.compose.ui.res.painterResource(R.drawable.kt_robot), contentDescription = "Nidhi", modifier = Modifier.size(62.dp), contentScale = ContentScale.Crop)
+            Image(painter = androidx.compose.ui.res.painterResource(R.drawable.kt_logo), contentDescription = "Kuber Tijori", modifier = Modifier.size(70.dp), contentScale = ContentScale.Fit)
         }
         Spacer(Modifier.height(20.dp))
 
@@ -323,7 +335,7 @@ private fun Dashboard(
         Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(24.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(18.dp)) {
                 Text("Place Paper Order", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
-                Text("No broker connection • simulated execution only", color = Muted, fontSize = 12.sp)
+                Text("Simulated execution only • no broker connection", color = Muted, fontSize = 12.sp)
                 Spacer(Modifier.height(14.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     FilterChip(selected = side == Side.BUY, onClick = { side = Side.BUY }, label = { Text("BUY") }, modifier = Modifier.weight(1f))
@@ -333,7 +345,7 @@ private fun Dashboard(
                 OutlinedTextField(symbol, { symbol = it }, label = { Text("Symbol") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(price, { price = it }, label = { Text("Price") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedTextField(price, { price = it }, label = { Text("Order Price") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.weight(1f))
                     OutlinedTextField(quantity, { quantity = it }, label = { Text("Qty") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(12.dp))
@@ -359,11 +371,29 @@ private fun Dashboard(
         }
 
         Spacer(Modifier.height(14.dp))
+        Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(18.dp)) {
+                Text("Manual Market Price", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Use this until the live market-data feed is connected.", color = Muted, fontSize = 12.sp)
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(markPrice, { markPrice = it }, label = { Text("LTP / Mark") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.weight(1f))
+                    Button(
+                        onClick = { onMarkPrice(symbol, markPrice.toDoubleOrNull() ?: 0.0); message = "Market price updated for ${symbol.trim().uppercase(Locale.US)}" },
+                        modifier = Modifier.height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Gold),
+                        shape = RoundedCornerShape(16.dp)
+                    ) { Text("UPDATE", color = Color.Black, fontWeight = FontWeight.Bold) }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             Button(onClick = onStart, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Cyan), shape = RoundedCornerShape(22.dp)) {
                 Icon(Icons.Default.PlayArrow, null, tint = Color.Black); Spacer(Modifier.width(5.dp)); Text("Start", color = Color.Black)
             }
-            OutlinedButton(onClick = onStop, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold), shape = RoundedCornerShape(22.dp)) {
+            OutlinedButton(onClick = onStop, modifier = Modifier.weight(1f), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = Gold), shape = RoundedCornerShape(22.dp)) {
                 Icon(Icons.Default.Stop, null); Spacer(Modifier.width(5.dp)); Text("Stop")
             }
         }
@@ -379,8 +409,8 @@ private fun Dashboard(
             Text("Last: ${lastTrade.side} ${lastTrade.quantity} ${lastTrade.symbol} @ ${money(lastTrade.price)}", color = Cyan, fontSize = 12.sp)
         }
         Spacer(Modifier.height(24.dp))
-        Text("Module 1 • Paper Trading • Manual Orders", color = Cyan, fontSize = 13.sp)
-        Text("EMA 9/21 engine can be connected to the same paper order service without changing the order ledger.", color = Muted, fontSize = 11.sp)
+        Text("Module 2 • Paper Ledger + Mark-to-Market", color = Cyan, fontSize = 13.sp)
+        Text("Orders and positions persist locally. Live market data and automated strategy execution remain isolated for the next module.", color = Muted, fontSize = 11.sp)
     }
 }
 
@@ -399,15 +429,10 @@ private fun MetricCard(title: String, value: String, valueColor: Color, modifier
 private fun OrdersScreen(orders: List<PaperOrder>, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().background(Bg).padding(18.dp)) {
         Text("Orders", color = Cyan, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        Text("Paper execution ledger", color = Muted, fontSize = 13.sp)
+        Text("Paper execution ledger • ${orders.size} total", color = Muted, fontSize = 13.sp)
         Spacer(Modifier.height(14.dp))
-        if (orders.isEmpty()) {
-            EmptyState("No paper orders yet", "Place a BUY or SELL order from Home.")
-        } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(orders, key = { it.id }) { order -> OrderCard(order) }
-            }
-        }
+        if (orders.isEmpty()) EmptyState("No paper orders yet", "Place a BUY or SELL order from Home.")
+        else LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) { items(orders, key = { it.id }) { OrderCard(it) } }
     }
 }
 
@@ -415,19 +440,22 @@ private fun OrdersScreen(orders: List<PaperOrder>, modifier: Modifier = Modifier
 private fun PositionsScreen(positions: List<Position>, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().background(Bg).padding(18.dp)) {
         Text("Positions", color = Cyan, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        Text("Current paper holdings", color = Muted, fontSize = 13.sp)
+        Text("Open holdings • mark-to-market P&L", color = Muted, fontSize = 13.sp)
         Spacer(Modifier.height(14.dp))
-        if (positions.isEmpty()) {
-            EmptyState("No open positions", "Place a BUY order to create a paper position.")
-        } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(positions, key = { it.symbol }) { position ->
-                    Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp)) {
-                            Text(position.symbol, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                            Text("Qty ${position.quantity} • Avg ${money(position.averagePrice)}", color = Cyan, fontSize = 13.sp)
-                            Text("Realized P&L ${money(position.realizedPnl)}", color = if (position.realizedPnl >= 0) Green else Red, fontSize = 13.sp)
+        if (positions.isEmpty()) EmptyState("No open positions", "Place a BUY order to create a paper position.")
+        else LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(positions, key = { it.symbol }) { position ->
+                val unrealized = unrealizedPnl(position)
+                val total = position.realizedPnl + unrealized
+                Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(position.symbol, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text(if (total >= 0) "+${money(total)}" else money(total), color = if (total >= 0) Green else Red, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                         }
+                        Spacer(Modifier.height(7.dp))
+                        Text("Qty ${position.quantity} • Avg ${money(position.averagePrice)} • LTP ${if (position.markPrice > 0) money(position.markPrice) else "--"}", color = Cyan, fontSize = 13.sp)
+                        Text("Unrealized ${money(unrealized)} • Realized ${money(position.realizedPnl)}", color = if (total >= 0) Green else Red, fontSize = 13.sp)
                     }
                 }
             }

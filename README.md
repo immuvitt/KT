@@ -41,3 +41,19 @@ Windows:
 ```bat
 gradlew.bat assembleDebug
 ```
+
+## v0.4 — Paper Trading Ledger + Mark-to-Market
+
+This update is built on the working paper-trading project and adds:
+
+- Finalized Kubēr Tijori logo artwork in splash, dashboard branding, and launcher assets.
+- Persistent paper orders and positions.
+- Manual LTP/mark-price updates for open positions.
+- Unrealized, realized, and total paper P&L on the Positions screen.
+- Weighted-average entry price when adding to an existing position.
+- Safer paper SELL validation and position reduction.
+- Clear separation between simulated execution and future live market-data/broker modules.
+
+### Current scope
+
+The app remains paper trading only. No real broker order is sent. The next module can replace the manual mark-price field with a live market-data adapter without changing the order ledger API.
