@@ -74,6 +74,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -218,22 +219,95 @@ private fun KTApp() {
 
 @Composable
 private fun SplashScreen() {
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Bg, Color(0xFF081224)))), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("NIDHI BOOT SEQUENCE", color = Cyan, fontSize = 12.sp, letterSpacing = 1.2.sp)
-            Spacer(Modifier.height(24.dp))
-            Image(painter = painterResourceCompat(R.drawable.kt_logo), contentDescription = "Kuber Tijori", modifier = Modifier.size(250.dp), contentScale = ContentScale.Fit)
-            Spacer(Modifier.height(12.dp))
-            Text("KT", color = Cyan, fontSize = 46.sp, fontWeight = FontWeight.Bold)
-            Text("NIDHI ONLINE", color = Gold, fontSize = 18.sp, letterSpacing = 1.4.sp)
+    var binary by remember { mutableStateOf("0100101010011010010110010100101101") }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(90)
+            val next = (0..1).random()
+            binary = (binary.drop(1) + next).takeLast(36)
+        }
+    }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(Bg, Color(0xFF081224)))),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "NIDHI BOOT SEQUENCE",
+                color = Cyan,
+                fontSize = 12.sp,
+                letterSpacing = 1.8.sp,
+                fontWeight = FontWeight.Medium
+            )
             Spacer(Modifier.height(22.dp))
-            Text("AI TRADING ASSISTANT", color = Muted, fontSize = 12.sp, letterSpacing = 1.sp)
-            Spacer(Modifier.height(30.dp))
-            Text("INITIALIZING SYSTEM...", color = Muted, fontSize = 10.sp)
-            Spacer(Modifier.height(6.dp))
-            Box(Modifier.width(190.dp).height(4.dp).clip(RoundedCornerShape(4.dp)).background(Color(0xFF122A38))) {
-                Box(Modifier.fillMaxWidth(0.87f).fillMaxSize().background(Cyan))
+
+            // Transparent PNG: the black square from the previous splash is removed.
+            Image(
+                painter = painterResourceCompat(R.drawable.kt_logo_transparent),
+                contentDescription = "Kuber Tijori",
+                modifier = Modifier.size(285.dp),
+                contentScale = ContentScale.Fit
+            )
+
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "NIDHI ONLINE",
+                color = Gold,
+                fontSize = 20.sp,
+                letterSpacing = 2.0.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(18.dp))
+            Text(
+                "AI TRADING ASSISTANT",
+                color = Muted,
+                fontSize = 12.sp,
+                letterSpacing = 1.8.sp
+            )
+            Spacer(Modifier.height(34.dp))
+            Text(
+                "INITIALIZING SYSTEM...",
+                color = Cyan,
+                fontSize = 11.sp,
+                letterSpacing = 2.4.sp
+            )
+            Spacer(Modifier.height(12.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .border(1.dp, Cyan.copy(alpha = 0.85f), RoundedCornerShape(10.dp))
+                    .background(Color(0xFF061421))
+                    .horizontalScroll(rememberScrollState()),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Text(
+                    text = "  ${binary.chunked(1).joinToString("  ")}  ...",
+                    color = Cyan,
+                    fontSize = 17.sp,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 1.sp,
+                    maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
             }
+
+            Spacer(Modifier.height(26.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.76f)
+                    .height(2.dp)
+                    .background(Brush.horizontalGradient(listOf(Color.Transparent, Cyan, Color.Transparent)))
+            )
         }
     }
 }
@@ -279,7 +353,7 @@ private fun CoreScreen(state: PaperState, initialCapital: Double, onStart: () ->
             }
             StatusChip(state.running)
             Spacer(Modifier.width(8.dp))
-            Image(painter = painterResourceCompat(R.drawable.kt_logo), contentDescription = "Kuber Tijori", modifier = Modifier.size(62.dp), contentScale = ContentScale.Fit)
+            Image(painter = painterResourceCompat(R.drawable.kt_logo_transparent), contentDescription = "Kuber Tijori", modifier = Modifier.size(62.dp), contentScale = ContentScale.Fit)
         }
         Spacer(Modifier.height(14.dp))
         HeroBotCard(state.running)
@@ -312,14 +386,22 @@ private fun CoreScreen(state: PaperState, initialCapital: Double, onStart: () ->
 private fun HeroBotCard(running: Boolean) {
     Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(22.dp))) {
         Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Analytics, null, tint = Cyan, modifier = Modifier.size(34.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.Analytics, null, tint = Cyan, modifier = Modifier.size(30.dp))
                 Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("BOT STATUS", color = Muted, fontSize = 11.sp, letterSpacing = 1.sp)
-                    Text(if (running) "RUNNING" else "STOPPED", color = if (running) Green else Gold, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("BOT STATUS", color = Muted, fontSize = 11.sp, letterSpacing = 1.sp, maxLines = 1)
+                    Text(
+                        if (running) "RUNNING" else "STOPPED",
+                        color = if (running) Green else Gold,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
                 }
-                MiniSparkline(true)
+                Spacer(Modifier.width(8.dp))
+                MiniSparkline(true, Modifier.width(105.dp).height(38.dp))
             }
         }
     }
