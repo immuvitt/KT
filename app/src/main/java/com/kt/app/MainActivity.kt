@@ -1,46 +1,790 @@
 package com.kt.app
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddChart
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.AutoGraph
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.ListAlt
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.WatchLater
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import org.json.JSONArray
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
+private val Bg = Color(0xFF05070A)
+private val CardBg = Color(0xFF0B1630)
+private val CardBg2 = Color(0xFF0B1426)
+private val Cyan = Color(0xFF00E5FF)
+private val Gold = Color(0xFFFFC107)
+private val Green = Color(0xFF22D878)
+private val Red = Color(0xFFFF4D5A)
+private val Muted = Color(0xFFB6BECC)
+private val Border = Color(0xFF17374A)
+
+// Configure the real market-data provider when selected. Never store API keys here.
 private const val MARKET_BASE_URL = "https://YOUR-MARKET-DATA-API/"
 private const val MARKET_QUOTE_PATH = "v1/quote/NIFTY"
 
-class MainActivity : ComponentActivity() {
+private enum class Screen { WATCHLIST, ORDERS, CORE, AI, POSITIONS }
+private enum class Side { BUY, SELL }
 
+private data class PaperOrder(val id: Long, val symbol: String, val side: Side, val quantity: Int, val price: Double, val time: Long)
+private data class Position(val symbol: String, val quantity: Int, val averagePrice: Double, val realizedPnl: Double, val markPrice: Double)
+private data class PaperState(val cash: Double, val orders: List<PaperOrder>, val positions: List<Position>, val running: Boolean)
+private data class Quote(val symbol: String, val exchange: String, val price: Double, val change: Double, val changePct: Double, val up: Boolean)
+
+private val quotes = listOf(
+    Quote("NIFTY 50", "NSE", 24311.80, 12.45, 0.05, true),
+    Quote("BANKNIFTY", "NSE", 52840.75, 28.60, 0.05, true),
+    Quote("FINNIFTY", "NSE", 23485.10, -15.30, -0.07, false),
+    Quote("RELIANCE", "NSE", 2952.40, 8.90, 0.30, true),
+    Quote("TCS", "NSE", 3685.75, -4.20, -0.11, false),
+    Quote("HDFCBANK", "NSE", 1678.20, 2.15, 0.13, true)
+)
+
+private class PaperTradingStore(context: Context) {
+    private val prefs = context.getSharedPreferences("kt_paper_trading", Context.MODE_PRIVATE)
+    private val initialCapital = 100_000.0
+
+    fun load(): PaperState {
+        val cash = prefs.getFloat("cash", initialCapital.toFloat()).toDouble()
+        val running = prefs.getBoolean("running", false)
+        val orders = mutableListOf<PaperOrder>()
+        runCatching { JSONArray(prefs.getString("orders", "[]")) }.getOrDefault(JSONArray()).let { a ->
+            for (i in 0 until a.length()) {
+                val o = a.getJSONObject(i)
+                orders += PaperOrder(o.getLong("id"), o.getString("symbol"), Side.valueOf(o.getString("side")), o.getInt("quantity"), o.getDouble("price"), o.getLong("time"))
+            }
+        }
+        val positions = mutableListOf<Position>()
+        runCatching { JSONArray(prefs.getString("positions", "[]")) }.getOrDefault(JSONArray()).let { a ->
+            for (i in 0 until a.length()) {
+                val p = a.getJSONObject(i)
+                positions += Position(p.getString("symbol"), p.getInt("quantity"), p.getDouble("averagePrice"), p.getDouble("realizedPnl"), p.optDouble("markPrice", 0.0))
+            }
+        }
+        return PaperState(cash, orders, positions, running)
+    }
+
+    fun save(state: PaperState) {
+        val orders = JSONArray().apply { state.orders.forEach { o -> put(JSONObject().apply { put("id", o.id); put("symbol", o.symbol); put("side", o.side.name); put("quantity", o.quantity); put("price", o.price); put("time", o.time) }) } }
+        val positions = JSONArray().apply { state.positions.forEach { p -> put(JSONObject().apply { put("symbol", p.symbol); put("quantity", p.quantity); put("averagePrice", p.averagePrice); put("realizedPnl", p.realizedPnl); put("markPrice", p.markPrice) }) } }
+        prefs.edit().putFloat("cash", state.cash.toFloat()).putBoolean("running", state.running).putString("orders", orders.toString()).putString("positions", positions.toString()).apply()
+    }
+
+    fun reset() = prefs.edit().clear().apply()
+    fun initialCapital() = initialCapital
+}
+
+private sealed interface OrderResult {
+    data class Success(val state: PaperState) : OrderResult
+    data class Error(val message: String) : OrderResult
+}
+
+private fun placeOrder(state: PaperState, symbolInput: String, side: Side, quantity: Int, price: Double): OrderResult {
+    val symbol = symbolInput.trim().uppercase(Locale.US)
+    if (symbol.isBlank()) return OrderResult.Error("Enter a symbol")
+    if (quantity <= 0 || price <= 0) return OrderResult.Error("Quantity and price must be greater than zero")
+    val existing = state.positions.firstOrNull { it.symbol == symbol }
+    val positions = state.positions.toMutableList()
+    var cash = state.cash
+    if (side == Side.BUY) {
+        val cost = quantity * price
+        if (cost > cash) return OrderResult.Error("Insufficient paper cash")
+        cash -= cost
+        val next = if (existing == null) Position(symbol, quantity, price, 0.0, price) else {
+            val totalQty = existing.quantity + quantity
+            Position(symbol, totalQty, ((existing.averagePrice * existing.quantity) + cost) / totalQty, existing.realizedPnl, price)
+        }
+        positions.removeAll { it.symbol == symbol }
+        positions += next
+    } else {
+        if (existing == null || quantity > existing.quantity) return OrderResult.Error("Not enough position to sell")
+        cash += quantity * price
+        val realized = existing.realizedPnl + (price - existing.averagePrice) * quantity
+        positions.removeAll { it.symbol == symbol }
+        if (existing.quantity - quantity > 0) positions += existing.copy(quantity = existing.quantity - quantity, realizedPnl = realized, markPrice = price)
+    }
+    val now = System.currentTimeMillis()
+    return OrderResult.Success(state.copy(cash = cash, orders = listOf(PaperOrder(now, symbol, side, quantity, price, now)) + state.orders, positions = positions))
+}
+
+private fun unrealized(position: Position) = if (position.markPrice > 0) (position.markPrice - position.averagePrice) * position.quantity else 0.0
+private fun totalPnl(state: PaperState) = state.positions.sumOf { it.realizedPnl + unrealized(it) }
+private fun money(v: Double) = "₹${String.format(Locale.US, "%,.2f", v)}"
+private fun signedMoney(v: Double) = if (v >= 0) "+${money(v)}" else money(v)
+
+class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContent { KTApp() }
+    }
+}
 
-        val api = MarketApi(
-            MarketApiConfig(
-                baseUrl = MARKET_BASE_URL,
-                quotePath = MARKET_QUOTE_PATH
+@Composable
+private fun KTApp() {
+    val context = LocalContext.current
+    val store = remember { PaperTradingStore(context) }
+    val repository = remember {
+        MarketRepository(
+            MarketApi(
+                MarketApiConfig(
+                    baseUrl = MARKET_BASE_URL,
+                    quotePath = MARKET_QUOTE_PATH
+                )
             )
         )
-        val repository = MarketRepository(api)
+    }
 
-        setContent {
-            MaterialTheme(
-                colorScheme = darkColorScheme()
+    var state by remember { mutableStateOf(store.load()) }
+    var screen by remember { mutableStateOf(Screen.CORE) }
+    var showSplash by remember { mutableStateOf(true) }
+    var liveQuote by remember { mutableStateOf<MarketQuote?>(null) }
+    var apiError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(1200)
+        showSplash = false
+    }
+
+    // API layer is wired now, but polling stays disabled until a real provider URL is configured.
+    LaunchedEffect(state.running) {
+        if (MARKET_BASE_URL.contains("YOUR-MARKET-DATA-API")) {
+            apiError = "Market API not configured"
+            return@LaunchedEffect
+        }
+
+        while (state.running) {
+            repository.getNiftyQuote()
+                .onSuccess {
+                    liveQuote = it
+                    apiError = null
+                }
+                .onFailure {
+                    apiError = it.message ?: "Market API unavailable"
+                }
+            kotlinx.coroutines.delay(5_000)
+        }
+    }
+
+    MaterialTheme(colorScheme = darkColorScheme(primary = Cyan, secondary = Gold, background = Bg, surface = CardBg)) {
+        if (showSplash) {
+            SplashScreen()
+        } else {
+            Scaffold(
+                containerColor = Bg,
+                bottomBar = { BottomNav(screen) { screen = it } }
+            ) { padding ->
+                when (screen) {
+                    Screen.WATCHLIST -> WatchlistScreen(Modifier.padding(padding))
+                    Screen.ORDERS -> OrdersScreen(
+                        state,
+                        { result ->
+                            if (result is OrderResult.Success) {
+                                state = result.state.also(store::save)
+                            }
+                        },
+                        Modifier.padding(padding)
+                    )
+                    Screen.CORE -> CoreScreen(
+                        state = state,
+                        initialCapital = store.initialCapital(),
+                        liveQuote = liveQuote,
+                        apiError = apiError,
+                        onStart = {
+                            state = state.copy(running = true).also(store::save)
+                        },
+                        onStop = {
+                            state = state.copy(running = false).also(store::save)
+                        },
+                        onRefresh = {
+                            state = store.load()
+                            if (!MARKET_BASE_URL.contains("YOUR-MARKET-DATA-API")) {
+                                scope.launch {
+                                    repository.getNiftyQuote()
+                                        .onSuccess {
+                                            liveQuote = it
+                                            apiError = null
+                                        }
+                                        .onFailure {
+                                            apiError = it.message ?: "Market API unavailable"
+                                        }
+                                }
+                            }
+                        },
+                        onReset = {
+                            store.reset()
+                            state = store.load()
+                            liveQuote = null
+                        },
+                        onOrders = { screen = Screen.ORDERS },
+                        modifier = Modifier.padding(padding)
+                    )
+                    Screen.AI -> AiScreen(state, Modifier.padding(padding))
+                    Screen.POSITIONS -> PositionsScreen(state, Modifier.padding(padding))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SplashScreen() {
+    var binary by remember { mutableStateOf("0100101010011010010110010100101101") }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(90)
+            val next = (0..1).random()
+            binary = (binary.drop(1) + next).takeLast(36)
+        }
+    }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Brush.verticalGradient(listOf(Bg, Color(0xFF081224)))),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "NIDHI BOOT SEQUENCE",
+                color = Cyan,
+                fontSize = 12.sp,
+                letterSpacing = 1.8.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(22.dp))
+
+            // Transparent PNG: the black square from the previous splash is removed.
+            Image(
+                painter = painterResourceCompat(R.drawable.kt_logo_transparent),
+                contentDescription = "Kuber Tijori",
+                modifier = Modifier.size(285.dp),
+                contentScale = ContentScale.Fit
+            )
+
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "NIDHI ONLINE",
+                color = Gold,
+                fontSize = 20.sp,
+                letterSpacing = 2.0.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(18.dp))
+            Text(
+                "AI TRADING ASSISTANT",
+                color = Muted,
+                fontSize = 12.sp,
+                letterSpacing = 1.8.sp
+            )
+            Spacer(Modifier.height(34.dp))
+            Text(
+                "INITIALIZING SYSTEM...",
+                color = Cyan,
+                fontSize = 11.sp,
+                letterSpacing = 2.4.sp
+            )
+            Spacer(Modifier.height(12.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .border(1.dp, Cyan.copy(alpha = 0.85f), RoundedCornerShape(10.dp))
+                    .background(Color(0xFF061421))
+                    .horizontalScroll(rememberScrollState()),
+                contentAlignment = Alignment.CenterStart
             ) {
-                val tradingViewModel = viewModel<TradingViewModel>(
-                    factory = TradingViewModelFactory(repository)
+                Text(
+                    text = "  ${binary.chunked(1).joinToString("  ")}  ...",
+                    color = Cyan,
+                    fontSize = 17.sp,
+                    fontFamily = FontFamily.Monospace,
+                    letterSpacing = 1.sp,
+                    maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 12.dp)
                 )
+            }
 
-                val state = tradingViewModel.state.collectAsState().value
+            Spacer(Modifier.height(26.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.76f)
+                    .height(2.dp)
+                    .background(Brush.horizontalGradient(listOf(Color.Transparent, Cyan, Color.Transparent)))
+            )
+        }
+    }
+}
 
-                HudDashboard(
-                    state = state,
-                    onRefresh = tradingViewModel::refresh,
-                    onStart = tradingViewModel::startEngine,
-                    onStop = tradingViewModel::stopEngine
+@Composable
+private fun BottomNav(screen: Screen, onSelect: (Screen) -> Unit) {
+    Surface(color = Color(0xFF0A0C12), modifier = Modifier.navigationBarsPadding()) {
+        Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            NavItem(screen == Screen.WATCHLIST, { onSelect(Screen.WATCHLIST) }, Icons.Default.WatchLater, "Watchlist")
+            NavItem(screen == Screen.ORDERS, { onSelect(Screen.ORDERS) }, Icons.Default.ListAlt, "Orders")
+            NavItem(screen == Screen.CORE, { onSelect(Screen.CORE) }, Icons.Default.AutoGraph, "KT Core")
+            NavItem(screen == Screen.AI, { onSelect(Screen.AI) }, Icons.Default.Bolt, "AI")
+            NavItem(screen == Screen.POSITIONS, { onSelect(Screen.POSITIONS) }, Icons.Default.Work, "Positions")
+        }
+    }
+}
+
+@Composable
+private fun NavItem(selected: Boolean, onClick: () -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
+    Column(
+        modifier = Modifier.width(72.dp).fillMaxSize().clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(icon, contentDescription = label, tint = if (selected) Cyan else Muted, modifier = Modifier.size(22.dp))
+        Text(label, fontSize = 9.sp, color = if (selected) Cyan else Muted)
+    }
+}
+
+@Composable
+private fun CoreScreen(state: PaperState, initialCapital: Double, liveQuote: MarketQuote?, apiError: String?, onStart: () -> Unit, onStop: () -> Unit, onRefresh: () -> Unit, onReset: () -> Unit, onOrders: () -> Unit, modifier: Modifier) {
+    val pnl = totalPnl(state)
+    val last = state.orders.firstOrNull()
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(Bg).padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("KT", color = Cyan, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Nidhi • Command Center", color = Color.White, fontSize = 17.sp)
+                    Spacer(Modifier.width(5.dp)); Box(Modifier.size(7.dp).clip(RoundedCornerShape(8.dp)).background(Green))
+                }
+                Text("PAPER TRADING", color = Muted, fontSize = 10.sp, letterSpacing = 1.2.sp)
+            }
+            StatusChip(state.running)
+            Spacer(Modifier.width(8.dp))
+            Image(painter = painterResourceCompat(R.drawable.kt_logo_transparent), contentDescription = "Kuber Tijori", modifier = Modifier.size(62.dp), contentScale = ContentScale.Fit)
+        }
+        Spacer(Modifier.height(14.dp))
+        HeroBotCard(state.running, liveQuote != null, apiError)
+        Spacer(Modifier.height(8.dp))
+        HudTelemetry(liveQuote != null)
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            MetricCard("TODAY'S P&L", signedMoney(pnl), if (pnl >= 0) Green else Red, Modifier.weight(1f))
+            MetricCard("LAST TRADE", last?.let { "${it.side} ${it.symbol}" } ?: "--", Color.White, Modifier.weight(1f), last?.let { "${it.quantity} @ ${money(it.price)}" } ?: "No trades yet")
+        }
+        Spacer(Modifier.height(10.dp))
+        MarketCard(liveQuote?.let { Quote(it.symbol, "API", it.price, it.change, it.changePercent, it.change >= 0) } ?: quotes.first())
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = onStart, Modifier.weight(1f).height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = Cyan), shape = RoundedCornerShape(22.dp)) { Icon(Icons.Default.PlayArrow, null, tint = Color.Black); Spacer(Modifier.width(5.dp)); Text("Start Bot", color = Color.Black, fontWeight = FontWeight.Bold) }
+            OutlinedButton(onClick = onStop, Modifier.weight(1f).height(48.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold), shape = RoundedCornerShape(22.dp)) { Icon(Icons.Default.Stop, null); Spacer(Modifier.width(5.dp)); Text("Stop Bot") }
+        }
+        Spacer(Modifier.height(9.dp))
+        Button(onClick = onRefresh, Modifier.fillMaxWidth().height(44.dp), colors = ButtonDefaults.buttonColors(containerColor = Gold), shape = RoundedCornerShape(18.dp)) { Icon(Icons.Default.Refresh, null, tint = Color.Black); Spacer(Modifier.width(6.dp)); Text("Refresh Data", color = Color.Black, fontWeight = FontWeight.Bold) }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedButton(onClick = onOrders, Modifier.weight(1f), shape = RoundedCornerShape(18.dp)) { Text("New / View Orders") }
+            OutlinedButton(onClick = onReset, Modifier.weight(1f), shape = RoundedCornerShape(18.dp)) { Text("Reset") }
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("Virtual capital: ${money(initialCapital)}", color = Muted, fontSize = 12.sp)
+        Text("Paper engine • local persistence • no broker connection", color = Cyan, fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun HeroBotCard(running: Boolean, apiConnected: Boolean, apiError: String?) {
+    Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(22.dp))) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.SmartToy, contentDescription = "Nidhi AI robot", tint = Cyan, modifier = Modifier.size(30.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("BOT STATUS", color = Muted, fontSize = 11.sp, letterSpacing = 1.sp, maxLines = 1)
+                    Text(
+                        if (running) "RUNNING" else "STOPPED",
+                        color = if (running) Green else Gold,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                    Text(
+                        when {
+                            apiConnected -> "MARKET LINK ONLINE"
+                            apiError != null -> apiError.uppercase(Locale.US)
+                            else -> "PAPER ENGINE READY"
+                        },
+                        color = if (apiConnected) Green else Muted,
+                        fontSize = 8.sp,
+                        letterSpacing = 1.sp
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                MiniSparkline(true, Modifier.width(105.dp).height(38.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun HudTelemetry(apiConnected: Boolean) {
+    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "ktHud")
+    val sweep by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(2600, easing = androidx.compose.animation.core.LinearEasing),
+            androidx.compose.animation.core.RepeatMode.Restart
+        ),
+        label = "hudSweep"
+    )
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF07111A)),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth().border(1.dp, Cyan.copy(alpha = .18f), RoundedCornerShape(16.dp))
+    ) {
+        Box(Modifier.fillMaxWidth().height(72.dp)) {
+            Canvas(Modifier.fillMaxSize()) {
+                val step = 32.dp.toPx()
+                var x = 0f
+                while (x < size.width) {
+                    drawLine(Cyan.copy(alpha = .035f), Offset(x, 0f), Offset(x, size.height))
+                    x += step
+                }
+                var y = 0f
+                while (y < size.height) {
+                    drawLine(Cyan.copy(alpha = .035f), Offset(0f, y), Offset(size.width, y))
+                    y += step
+                }
+                drawArc(
+                    color = Cyan.copy(alpha = .7f),
+                    startAngle = sweep,
+                    sweepAngle = 75f,
+                    useCenter = false,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+                )
+            }
+            Column(Modifier.padding(12.dp)) {
+                Text("NIDHI TELEMETRY", color = Cyan, fontSize = 9.sp, letterSpacing = 1.5.sp)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (apiConnected) "MARKET FEED • LINKED • PAPER EXECUTION" else "0 1 0 0 1 0 1 0 0 0 1 • API STANDBY • PAPER MODE",
+                    color = Muted,
+                    fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace
                 )
             }
         }
     }
 }
+
+@Composable
+private fun StatusChip(running: Boolean) {
+    Box(Modifier.border(1.dp, if (running) Green else Gold, RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 6.dp)) {
+        Text(if (running) "CONNECTED" else "READY", color = if (running) Green else Gold, fontSize = 10.sp)
+    }
+}
+
+@Composable
+private fun MetricCard(title: String, value: String, color: Color, modifier: Modifier, subtitle: String? = null) {
+    Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(18.dp), modifier = modifier) {
+        Column(Modifier.padding(14.dp)) {
+            Text(title, color = Muted, fontSize = 10.sp)
+            Spacer(Modifier.height(4.dp))
+            Text(value, color = color, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            subtitle?.let { Text(it, color = Muted, fontSize = 9.sp) }
+        }
+    }
+}
+
+@Composable
+private fun MarketCard(q: Quote) {
+    Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) { Text(q.symbol, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.width(7.dp)); Text("LIVE", color = Gold, fontSize = 8.sp) }
+                Text(q.exchange, color = Muted, fontSize = 10.sp)
+                Text("${if (q.change >= 0) "+" else ""}${q.change} (${q.changePct}%)", color = if (q.up) Green else Red, fontSize = 11.sp)
+            }
+            MiniSparkline(q.up, Modifier.width(115.dp).height(42.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(String.format(Locale.US, "%,.2f", q.price), color = if (q.symbol == "NIFTY 50") Gold else Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun WatchlistScreen(modifier: Modifier) {
+    var tab by remember { mutableStateOf(0) }
+    Column(modifier.fillMaxSize().background(Bg).padding(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Watchlist", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            IconButton(onClick = {}) { Icon(Icons.Default.Add, null, tint = Cyan) }
+            IconButton(onClick = {}) { Icon(Icons.Default.Settings, null, tint = Muted) }
+        }
+        Spacer(Modifier.height(8.dp))
+        TabRowLike(listOf("NIFTY", "BANKNIFTY", "FINNIFTY", "STOCKS"), tab) { tab = it }
+        Spacer(Modifier.height(10.dp))
+        val list = when (tab) { 0 -> quotes.take(1); 1 -> quotes.drop(1).take(1); 2 -> quotes.drop(2).take(1); else -> quotes.drop(3) }
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(9.dp)) { items(list) { QuoteRow(it) } }
+    }
+}
+
+@Composable
+private fun TabRowLike(labels: List<String>, selected: Int, onSelected: (Int) -> Unit) {
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        labels.forEachIndexed { i, label ->
+            val active = selected == i
+            Box(Modifier.clip(RoundedCornerShape(12.dp)).background(if (active) Color(0xFF071C27) else Color.Transparent).border(1.dp, if (active) Cyan else Color.Transparent, RoundedCornerShape(12.dp)).clickable { onSelected(i) }.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                Text(label, color = if (active) Cyan else Muted, fontSize = 10.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuoteRow(q: Quote) {
+    Card(colors = CardDefaults.cardColors(containerColor = CardBg2), shape = RoundedCornerShape(15.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) { Text(q.symbol, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold); Text(q.exchange, color = Muted, fontSize = 9.sp) }
+            MiniSparkline(q.up, Modifier.width(82.dp).height(32.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(horizontalAlignment = Alignment.End) { Text(String.format(Locale.US, "%,.2f", q.price), color = Color.White, fontSize = 15.sp); Text("${if (q.change >= 0) "+" else ""}${q.change} (${q.changePct}%)", color = if (q.up) Green else Red, fontSize = 9.sp) }
+        }
+    }
+}
+
+@Composable
+private fun OrdersScreen(state: PaperState, onOrder: (OrderResult) -> Unit, modifier: Modifier) {
+    var side by remember { mutableStateOf(Side.BUY) }
+    var symbol by remember { mutableStateOf("NIFTY") }
+    var price by remember { mutableStateOf("25000") }
+    var qty by remember { mutableStateOf("50") }
+    var tab by remember { mutableStateOf(0) }
+    var message by remember { mutableStateOf("") }
+    Column(modifier.fillMaxSize().background(Bg).padding(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) { Text("Orders", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); Icon(Icons.Default.ListAlt, null, tint = Cyan) }
+        Text("Paper execution ledger", color = Muted, fontSize = 11.sp)
+        Spacer(Modifier.height(10.dp))
+        TabRowLike(listOf("Open Orders", "Trade History", "Positions"), tab) { tab = it }
+        Spacer(Modifier.height(10.dp))
+        if (tab == 0) {
+            Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(15.dp)) {
+                    Text("New Paper Order", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Text("Simulated execution only • no broker connection", color = Muted, fontSize = 10.sp)
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) { ToggleButton("BUY", side == Side.BUY, { side = Side.BUY }, Modifier.weight(1f)); ToggleButton("SELL", side == Side.SELL, { side = Side.SELL }, Modifier.weight(1f)) }
+                    Spacer(Modifier.height(9.dp))
+                    OutlinedTextField(symbol, { symbol = it }, label = { Text("Symbol") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(price, { price = it }, label = { Text("Order Price") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.weight(1f))
+                        OutlinedTextField(qty, { qty = it }, label = { Text("Qty") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.weight(1f))
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Button(onClick = { val r = placeOrder(state, symbol, side, qty.toIntOrNull() ?: 0, price.toDoubleOrNull() ?: 0.0); message = if (r is OrderResult.Success) "${side.name} order executed" else (r as OrderResult.Error).message; onOrder(r) }, Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = if (side == Side.BUY) Cyan else Red), shape = RoundedCornerShape(17.dp)) { Icon(Icons.Default.AddChart, null, tint = Color.Black); Spacer(Modifier.width(6.dp)); Text("PLACE ${side.name} ORDER", color = Color.Black, fontWeight = FontWeight.Bold) }
+                    if (message.isNotBlank()) { Spacer(Modifier.height(6.dp)); Text(message, color = if (message.contains("executed")) Green else Red, fontSize = 10.sp) }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            if (state.orders.isEmpty()) EmptyState("No Open Orders", "Your paper orders will appear here", Icons.Default.ListAlt)
+            else LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) { items(state.orders.take(8), key = { it.id }) { OrderCard(it) } }
+        } else if (tab == 1) {
+            if (state.orders.isEmpty()) EmptyState("No Trade History", "Executed paper trades will appear here", Icons.Default.BarChart)
+            else LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) { items(state.orders, key = { it.id }) { OrderCard(it) } }
+        } else {
+            if (state.positions.isEmpty()) EmptyState("No Positions", "Open paper positions will appear here", Icons.Default.Work)
+            else LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) { items(state.positions, key = { it.symbol }) { PositionCard(it) } }
+        }
+    }
+}
+
+@Composable
+private fun ToggleButton(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier) {
+    Box(modifier.clip(RoundedCornerShape(12.dp)).background(if (selected) Color(0xFF514A5D) else Color.Transparent).border(1.dp, if (selected) Color(0xFF514A5D) else Border, RoundedCornerShape(12.dp)).clickable { onClick() }.padding(vertical = 11.dp), contentAlignment = Alignment.Center) { Text(text, color = if (selected) Color.White else Muted, fontWeight = FontWeight.Medium) }
+}
+
+@Composable
+private fun OrderCard(order: PaperOrder) {
+    Card(colors = CardDefaults.cardColors(containerColor = CardBg2), shape = RoundedCornerShape(15.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) { Text("${order.side} ${order.symbol}", color = if (order.side == Side.BUY) Green else Red, fontSize = 14.sp, fontWeight = FontWeight.Bold); Text("Qty ${order.quantity} @ ${money(order.price)}", color = Color.White, fontSize = 11.sp); Text(SimpleDateFormat("dd MMM HH:mm:ss", Locale.US).format(Date(order.time)), color = Muted, fontSize = 9.sp) }
+            Text("PAPER", color = Gold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun PositionsScreen(state: PaperState, modifier: Modifier) {
+    var tab by remember { mutableStateOf(0) }
+    val pnl = totalPnl(state)
+    Column(modifier.fillMaxSize().background(Bg).padding(14.dp)) {
+        Text("Positions", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text("Open positions and performance", color = Muted, fontSize = 11.sp)
+        Spacer(Modifier.height(10.dp))
+        TabRowLike(listOf("Open Positions", "Performance"), tab) { tab = it }
+        Spacer(Modifier.height(10.dp))
+        if (tab == 0) {
+            if (state.positions.isEmpty()) EmptyState("No Open Positions", "Your open positions will appear here", Icons.Default.Work)
+            else LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) { items(state.positions, key = { it.symbol }) { PositionCard(it) } }
+        } else {
+            Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(18.dp)) {
+                    Text("Performance", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(12.dp))
+                    MetricCard("TOTAL PAPER P&L", signedMoney(pnl), if (pnl >= 0) Green else Red, Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) { MetricCard("TRADES", state.orders.size.toString(), Cyan, Modifier.weight(1f)); MetricCard("OPEN", state.positions.size.toString(), Gold, Modifier.weight(1f)) }
+                    Spacer(Modifier.height(16.dp)); MiniSparkline(pnl >= 0, Modifier.fillMaxWidth().height(90.dp)); Spacer(Modifier.height(10.dp)); Text("Performance analytics will expand as strategy execution is connected.", color = Muted, fontSize = 10.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PositionCard(p: Position) {
+    val u = unrealized(p); val total = p.realizedPnl + u
+    Card(colors = CardDefaults.cardColors(containerColor = CardBg2), shape = RoundedCornerShape(15.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(13.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(p.symbol, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold); Text("Qty ${p.quantity} • Avg ${money(p.averagePrice)}", color = Muted, fontSize = 10.sp) }; Text(signedMoney(total), color = if (total >= 0) Green else Red, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
+            Spacer(Modifier.height(6.dp)); Text("LTP ${if (p.markPrice > 0) money(p.markPrice) else "--"} • Unrealized ${signedMoney(u)} • Realized ${signedMoney(p.realizedPnl)}", color = Cyan, fontSize = 10.sp)
+        }
+    }
+}
+
+@Composable
+private fun AiScreen(state: PaperState, modifier: Modifier) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(Bg).padding(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) { Text("AI Assistant", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); Icon(Icons.Default.Settings, null, tint = Muted) }
+        Spacer(Modifier.height(10.dp))
+        Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(58.dp).clip(RoundedCornerShape(18.dp)).background(Color(0xFF081C2A)), contentAlignment = Alignment.Center) { Icon(Icons.Default.Bolt, null, tint = Cyan, modifier = Modifier.size(34.dp)) }
+                Spacer(Modifier.width(12.dp)); Column { Row(verticalAlignment = Alignment.CenterVertically) { Text("Nidhi is online", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.width(5.dp)); Box(Modifier.size(7.dp).clip(RoundedCornerShape(8.dp)).background(Green)) }; Text("How can I help you today?", color = Muted, fontSize = 11.sp) }
+            }
+        }
+        Spacer(Modifier.height(14.dp)); Text("Smart Actions", color = Muted, fontSize = 11.sp)
+        Spacer(Modifier.height(7.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) { ActionCard("Market Analysis", Icons.Default.Analytics, Modifier.weight(1f)); ActionCard("Trade Ideas", Icons.Default.AutoGraph, Modifier.weight(1f)) }
+        Spacer(Modifier.height(8.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) { ActionCard("Risk Check", Icons.Default.Security, Modifier.weight(1f)); ActionCard("Performance", Icons.Default.BarChart, Modifier.weight(1f)) }
+        Spacer(Modifier.height(14.dp)); Text("Ask Nidhi", color = Muted, fontSize = 11.sp)
+        Spacer(Modifier.height(7.dp))
+        listOf("How is the market today?", "Give me a trade idea for NIFTY", "What is my today's performance?", "Show my win rate this week").forEach { PromptRow(it) }
+        Spacer(Modifier.height(12.dp)); Text("Current paper P&L: ${signedMoney(totalPnl(state))}", color = Cyan, fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun ActionCard(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier) {
+    Card(colors = CardDefaults.cardColors(containerColor = CardBg2), shape = RoundedCornerShape(12.dp), modifier = modifier) { Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = Cyan, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(text, color = Color.White, fontSize = 10.sp) } }
+}
+
+@Composable
+private fun PromptRow(text: String) {
+    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF070D18)), shape = RoundedCornerShape(11.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)) { Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) { Text(text, color = Color.White, fontSize = 10.sp, modifier = Modifier.weight(1f)); Text("›", color = Muted, fontSize = 18.sp) } }
+}
+
+@Composable
+private fun EmptyState(title: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Card(colors = CardDefaults.cardColors(containerColor = CardBg2), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.fillMaxWidth().padding(34.dp), horizontalAlignment = Alignment.CenterHorizontally) { Icon(icon, null, tint = Cyan, modifier = Modifier.size(50.dp)); Spacer(Modifier.height(12.dp)); Text(title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold); Text(subtitle, color = Muted, fontSize = 10.sp) }
+    }
+}
+
+@Composable
+private fun MiniSparkline(up: Boolean, modifier: Modifier = Modifier.fillMaxWidth().height(45.dp)) {
+    val points = if (up) listOf(.20f,.35f,.27f,.48f,.42f,.66f,.57f,.82f,.74f,1f) else listOf(.72f,.45f,.60f,.30f,.40f,.20f,.35f,.12f,.25f,.05f)
+    Canvas(modifier) {
+        val path = Path(); points.forEachIndexed { i, v -> val x = size.width * i / (points.lastIndex.coerceAtLeast(1)); val y = size.height * (1f - v); if (i == 0) path.moveTo(x,y) else path.lineTo(x,y) }; drawPath(path, color = if (up) Green else Red, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.2f))
+        drawLine(if (up) Green else Red, Offset(0f, size.height - 1), Offset(size.width, size.height - 1), 0.7f)
+    }
+}
+
+@Composable
+private fun painterResourceCompat(id: Int) = androidx.compose.ui.res.painterResource(id)
