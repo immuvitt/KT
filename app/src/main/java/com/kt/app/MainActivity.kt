@@ -222,7 +222,7 @@ private fun SplashScreen() {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("NIDHI BOOT SEQUENCE", color = Cyan, fontSize = 12.sp, letterSpacing = 1.2.sp)
             Spacer(Modifier.height(24.dp))
-            Image(painterResourceCompat(R.drawable.kt_logo), "Kuber Tijori", Modifier.size(250.dp), ContentScale.Fit)
+            Image(painter = painterResourceCompat(R.drawable.kt_logo), contentDescription = "Kuber Tijori", modifier = Modifier.size(250.dp), contentScale = ContentScale.Fit)
             Spacer(Modifier.height(12.dp))
             Text("KT", color = Cyan, fontSize = 46.sp, fontWeight = FontWeight.Bold)
             Text("NIDHI ONLINE", color = Gold, fontSize = 18.sp, letterSpacing = 1.4.sp)
@@ -279,7 +279,7 @@ private fun CoreScreen(state: PaperState, initialCapital: Double, onStart: () ->
             }
             StatusChip(state.running)
             Spacer(Modifier.width(8.dp))
-            Image(painterResourceCompat(R.drawable.kt_logo), "Kuber Tijori", Modifier.size(62.dp), ContentScale.Fit)
+            Image(painter = painterResourceCompat(R.drawable.kt_logo), contentDescription = "Kuber Tijori", modifier = Modifier.size(62.dp), contentScale = ContentScale.Fit)
         }
         Spacer(Modifier.height(14.dp))
         HeroBotCard(state.running)
