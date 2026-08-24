@@ -22,7 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddChart
@@ -79,7 +79,7 @@ private val Green = Color(0xFF33D17A)
 private val Red = Color(0xFFFF5C5C)
 private val Muted = Color(0xFFB8C0CC)
 
-private enum class Side { BUY, SELL }
+enum class Side { BUY, SELL }
 private enum class Screen { DASHBOARD, ORDERS, POSITIONS }
 
 data class PaperOrder(
