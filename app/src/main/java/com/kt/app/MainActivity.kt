@@ -52,14 +52,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -241,18 +240,27 @@ private fun SplashScreen() {
 
 @Composable
 private fun BottomNav(screen: Screen, onSelect: (Screen) -> Unit) {
-    NavigationBar(containerColor = Color(0xFF0A0C12), modifier = Modifier.navigationBarsPadding()) {
-        NavItem(screen == Screen.WATCHLIST, { onSelect(Screen.WATCHLIST) }, Icons.Default.WatchLater, "Watchlist")
-        NavItem(screen == Screen.ORDERS, { onSelect(Screen.ORDERS) }, Icons.Default.ListAlt, "Orders")
-        NavItem(screen == Screen.CORE, { onSelect(Screen.CORE) }, Icons.Default.AutoGraph, "KT Core")
-        NavItem(screen == Screen.AI, { onSelect(Screen.AI) }, Icons.Default.Bolt, "AI")
-        NavItem(screen == Screen.POSITIONS, { onSelect(Screen.POSITIONS) }, Icons.Default.Work, "Positions")
+    Surface(color = Color(0xFF0A0C12), modifier = Modifier.navigationBarsPadding()) {
+        Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+            NavItem(screen == Screen.WATCHLIST, { onSelect(Screen.WATCHLIST) }, Icons.Default.WatchLater, "Watchlist")
+            NavItem(screen == Screen.ORDERS, { onSelect(Screen.ORDERS) }, Icons.Default.ListAlt, "Orders")
+            NavItem(screen == Screen.CORE, { onSelect(Screen.CORE) }, Icons.Default.AutoGraph, "KT Core")
+            NavItem(screen == Screen.AI, { onSelect(Screen.AI) }, Icons.Default.Bolt, "AI")
+            NavItem(screen == Screen.POSITIONS, { onSelect(Screen.POSITIONS) }, Icons.Default.Work, "Positions")
+        }
     }
 }
 
 @Composable
 private fun NavItem(selected: Boolean, onClick: () -> Unit, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
-    NavigationBarItem(selected, onClick, icon = { Icon(icon, null, tint = if (selected) Cyan else Muted) }, label = { Text(label, fontSize = 10.sp, color = if (selected) Cyan else Muted) })
+    Column(
+        modifier = Modifier.width(72.dp).fillMaxSize().clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(icon, contentDescription = label, tint = if (selected) Cyan else Muted, modifier = Modifier.size(22.dp))
+        Text(label, fontSize = 9.sp, color = if (selected) Cyan else Muted)
+    }
 }
 
 @Composable
@@ -357,7 +365,7 @@ private fun WatchlistScreen(modifier: Modifier) {
     var tab by remember { mutableStateOf(0) }
     Column(modifier.fillMaxSize().background(Bg).padding(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Watchlist", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, Modifier.weight(1f))
+            Text("Watchlist", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             IconButton(onClick = {}) { Icon(Icons.Default.Add, null, tint = Cyan) }
             IconButton(onClick = {}) { Icon(Icons.Default.Settings, null, tint = Muted) }
         }
@@ -402,7 +410,7 @@ private fun OrdersScreen(state: PaperState, onOrder: (OrderResult) -> Unit, modi
     var tab by remember { mutableStateOf(0) }
     var message by remember { mutableStateOf("") }
     Column(modifier.fillMaxSize().background(Bg).padding(14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) { Text("Orders", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, Modifier.weight(1f)); Icon(Icons.Default.ListAlt, null, tint = Cyan) }
+        Row(verticalAlignment = Alignment.CenterVertically) { Text("Orders", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); Icon(Icons.Default.ListAlt, null, tint = Cyan) }
         Text("Paper execution ledger", color = Muted, fontSize = 11.sp)
         Spacer(Modifier.height(10.dp))
         TabRowLike(listOf("Open Orders", "Trade History", "Positions"), tab) { tab = it }
@@ -496,7 +504,7 @@ private fun PositionCard(p: Position) {
 @Composable
 private fun AiScreen(state: PaperState, modifier: Modifier) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(Bg).padding(14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) { Text("AI Assistant", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, Modifier.weight(1f)); Icon(Icons.Default.Settings, null, tint = Muted) }
+        Row(verticalAlignment = Alignment.CenterVertically) { Text("AI Assistant", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f)); Icon(Icons.Default.Settings, null, tint = Muted) }
         Spacer(Modifier.height(10.dp))
         Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -522,7 +530,7 @@ private fun ActionCard(text: String, icon: androidx.compose.ui.graphics.vector.I
 
 @Composable
 private fun PromptRow(text: String) {
-    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF070D18)), shape = RoundedCornerShape(11.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)) { Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) { Text(text, color = Color.White, fontSize = 10.sp, Modifier.weight(1f)); Text("›", color = Muted, fontSize = 18.sp) } }
+    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF070D18)), shape = RoundedCornerShape(11.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)) { Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) { Text(text, color = Color.White, fontSize = 10.sp, modifier = Modifier.weight(1f)); Text("›", color = Muted, fontSize = 18.sp) } }
 }
 
 @Composable
