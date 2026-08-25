@@ -486,7 +486,7 @@ private fun LogoNavItem(selected: Boolean, onClick: () -> Unit, label: String) {
         Image(
             painter = painterResourceCompat(R.drawable.kt_logo_transparent),
             contentDescription = label,
-            modifier = Modifier.size(27.dp),
+            modifier = Modifier.size(31.dp),
             contentScale = ContentScale.Fit
         )
         Text(label, fontSize = 9.sp, color = if (selected) Cyan else Muted)
@@ -520,48 +520,110 @@ private fun CoreScreen(
 ) {
     val pnl = totalPnl(state)
     val last = state.orders.firstOrNull()
-    val displayQuote = liveQuote?.let { Quote(it.symbol, "NSE", it.price, it.change, it.changePercent, it.change >= 0) } ?: quotes.first()
+    val displayQuote = liveQuote?.let {
+        Quote(it.symbol, "NSE", it.price, it.change, it.changePercent, it.change >= 0)
+    } ?: quotes.first()
     val isLive = liveQuote != null
 
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(Bg).padding(14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+    Column(
+        modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .background(Bg)
+            .padding(horizontal = 24.dp, vertical = 12.dp)
+    ) {
+        // Reference header: small KT logo, title, online dot and CONNECTED pill.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top
+        ) {
             Column(Modifier.weight(1f)) {
                 Image(
                     painter = painterResourceCompat(R.drawable.kt_logo_transparent),
                     contentDescription = "KT",
-                    modifier = Modifier.size(54.dp),
+                    modifier = Modifier.size(70.dp),
                     contentScale = ContentScale.Fit
                 )
+                Spacer(Modifier.height(3.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Nidhi • Command Center", color = Color.White, fontSize = 16.sp)
-                    Spacer(Modifier.width(5.dp))
-                    Box(Modifier.size(7.dp).clip(RoundedCornerShape(8.dp)).background(Green))
+                    Text(
+                        "Nidhi • Command Center",
+                        color = Color.White,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        Modifier
+                            .size(8.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Green)
+                    )
                 }
-                Text("PAPER TRADING", color = Muted, fontSize = 10.sp, letterSpacing = 1.2.sp)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "PAPER TRADING",
+                    color = Muted,
+                    fontSize = 10.sp,
+                    letterSpacing = 1.4.sp
+                )
             }
-            StatusChip(state.running)
+
+            Box(
+                modifier = Modifier
+                    .padding(top = 58.dp)
+                    .border(1.dp, Green, RoundedCornerShape(11.dp))
+                    .padding(horizontal = 13.dp, vertical = 9.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(7.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Green)
+                    )
+                    Spacer(Modifier.width(7.dp))
+                    Text(
+                        "CONNECTED",
+                        color = Green,
+                        fontSize = 10.sp,
+                        letterSpacing = 0.7.sp
+                    )
+                }
+            }
         }
 
-        Spacer(Modifier.height(7.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            Text(
-                SimpleDateFormat("dd MMM yyyy  •  HH:mm:ss", Locale.US).format(Date()),
-                color = Muted,
-                fontSize = 8.sp
-            )
-        }
+        Spacer(Modifier.height(20.dp))
 
-        Spacer(Modifier.height(8.dp))
-        HeroBotCard(state.running, isLive, apiError)
+        // Reference Bot Status card: robot on the left, status in the middle,
+        // compact market line chart on the right. No separate hero image.
+        BotStatusCard(
+            running = state.running,
+            apiConnected = isLive,
+            apiError = apiError
+        )
 
         Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            MetricCard("TODAY'S P&L", signedMoney(pnl), if (pnl >= 0) Green else Red, Modifier.weight(1f))
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            MetricCard(
+                "TODAY'S P&L",
+                signedMoney(pnl),
+                if (pnl >= 0) Green else Red,
+                Modifier
+                    .weight(1f)
+                    .height(184.dp)
+            )
             MetricCard(
                 "LAST TRADE",
                 last?.let { "${it.side} ${it.symbol}" } ?: "--",
                 Color.White,
-                Modifier.weight(1f),
+                Modifier
+                    .weight(1f)
+                    .height(184.dp),
                 last?.let { "${it.quantity} @ ${money(it.price)}" } ?: "No trades yet"
             )
         }
@@ -570,175 +632,168 @@ private fun CoreScreen(
         MarketCard(displayQuote, isLive)
 
         Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Button(
                 onClick = onStart,
-                modifier = Modifier.weight(1f).height(48.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Cyan),
-                shape = RoundedCornerShape(22.dp)
+                shape = RoundedCornerShape(28.dp)
             ) {
-                Icon(Icons.Default.PlayArrow, null, tint = Color.Black)
-                Spacer(Modifier.width(5.dp))
-                Text("Start Bot", color = Color.Black, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(25.dp))
+                Spacer(Modifier.width(7.dp))
+                Text("Start Bot", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
+
             OutlinedButton(
                 onClick = onStop,
-                modifier = Modifier.weight(1f).height(48.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold),
-                shape = RoundedCornerShape(22.dp)
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF4A4A52)),
+                shape = RoundedCornerShape(28.dp)
             ) {
-                Icon(Icons.Default.Stop, null)
-                Spacer(Modifier.width(5.dp))
-                Text("Stop Bot")
+                Icon(Icons.Default.Stop, null, modifier = Modifier.size(25.dp))
+                Spacer(Modifier.width(7.dp))
+                Text("Stop Bot", fontSize = 16.sp)
             }
         }
 
         Spacer(Modifier.height(9.dp))
+
         Button(
             onClick = onRefresh,
-            modifier = Modifier.fillMaxWidth().height(44.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Gold),
-            shape = RoundedCornerShape(18.dp)
+            shape = RoundedCornerShape(28.dp)
         ) {
-            Icon(Icons.Default.Refresh, null, tint = Color.Black)
-            Spacer(Modifier.width(6.dp))
-            Text("Refresh Data", color = Color.Black, fontWeight = FontWeight.Bold)
+            Icon(Icons.Default.Refresh, null, tint = Color.Black, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Refresh Data", color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
 
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(onClick = onOrders, Modifier.weight(1f), shape = RoundedCornerShape(18.dp)) { Text("New / View Orders") }
-            OutlinedButton(onClick = onReset, Modifier.weight(1f), shape = RoundedCornerShape(18.dp)) { Text("Reset") }
+        Spacer(Modifier.height(11.dp))
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedButton(
+                onClick = onOrders,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(52.dp),
+                shape = RoundedCornerShape(26.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF44454C))
+            ) {
+                Text("New / View Orders", fontSize = 14.sp)
+            }
+            OutlinedButton(
+                onClick = onReset,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(52.dp),
+                shape = RoundedCornerShape(26.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF44454C))
+            ) {
+                Text("Reset", fontSize = 14.sp)
+            }
         }
 
         Spacer(Modifier.height(16.dp))
-        Text("Virtual capital: ${money(initialCapital)}", color = Muted, fontSize = 12.sp)
-        Text("Paper engine • local persistence • no broker connection", color = Cyan, fontSize = 11.sp)
+        Text(
+            "Virtual capital: ${money(initialCapital)}",
+            color = Muted,
+            fontSize = 12.sp
+        )
+        Spacer(Modifier.height(5.dp))
+        Text(
+            "Paper engine • local persistence • no broker connection",
+            color = Cyan,
+            fontSize = 11.sp
+        )
+        Spacer(Modifier.height(8.dp))
     }
 }
 
 @Composable
-private fun HeroBotCard(running: Boolean, apiConnected: Boolean, apiError: String?) {
+private fun BotStatusCard(
+    running: Boolean,
+    apiConnected: Boolean,
+    apiError: String?
+) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF071326)),
-        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        shape = RoundedCornerShape(22.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Border, RoundedCornerShape(20.dp))
+            .height(205.dp)
+            .border(1.dp, Border, RoundedCornerShape(22.dp))
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = painterResourceCompat(R.drawable.kt_robot),
+                contentDescription = "Nidhi trading robot",
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(188.dp),
-                contentAlignment = Alignment.Center
+                    .size(108.dp)
+                    .padding(2.dp),
+                contentScale = ContentScale.Fit
+            )
+
+            Spacer(Modifier.width(8.dp))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
             ) {
-                Canvas(Modifier.fillMaxSize()) {
-                    val center = Offset(size.width / 2f, size.height / 2f)
-                    val r = minOf(size.width, size.height) * 0.38f
-                    drawCircle(
-                        color = Cyan.copy(alpha = 0.10f),
-                        radius = r * 1.30f,
-                        center = center,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx())
-                    )
-                    drawCircle(
-                        color = Cyan.copy(alpha = 0.35f),
-                        radius = r * 1.05f,
-                        center = center,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx())
-                    )
-                    drawArc(
-                        color = Cyan.copy(alpha = 0.95f),
-                        startAngle = -145f,
-                        sweepAngle = 95f,
-                        useCenter = false,
-                        topLeft = Offset(center.x - r * 1.18f, center.y - r * 1.18f),
-                        size = androidx.compose.ui.geometry.Size(r * 2.36f, r * 2.36f),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(4.dp.toPx())
-                    )
-                    drawArc(
-                        color = Gold.copy(alpha = 0.9f),
-                        startAngle = 25f,
-                        sweepAngle = 42f,
-                        useCenter = false,
-                        topLeft = Offset(center.x - r * 1.18f, center.y - r * 1.18f),
-                        size = androidx.compose.ui.geometry.Size(r * 2.36f, r * 2.36f),
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx())
-                    )
-                    for (i in 0 until 18) {
-                        val a = Math.toRadians(i * 20.0)
-                        val inner = r * 1.08f
-                        val outer = r * if (i % 3 == 0) 1.18f else 1.13f
-                        drawLine(
-                            color = Cyan.copy(alpha = if (i % 3 == 0) 0.55f else 0.22f),
-                            start = Offset(
-                                center.x + kotlin.math.cos(a).toFloat() * inner,
-                                center.y + kotlin.math.sin(a).toFloat() * inner
-                            ),
-                            end = Offset(
-                                center.x + kotlin.math.cos(a).toFloat() * outer,
-                                center.y + kotlin.math.sin(a).toFloat() * outer
-                            ),
-                            strokeWidth = if (i % 3 == 0) 2.dp.toPx() else 1.dp.toPx()
-                        )
-                    }
-                }
-                Image(
-                    painter = painterResourceCompat(R.drawable.kt_robot),
-                    contentDescription = "Nidhi trading robot",
-                    modifier = Modifier
-                        .fillMaxWidth(0.82f)
-                        .height(176.dp),
-                    contentScale = ContentScale.Fit
+                Text(
+                    "BOT STATUS",
+                    color = Muted,
+                    fontSize = 10.sp,
+                    letterSpacing = 1.1.sp
+                )
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    if (running) "RUNNING" else "STOPPED",
+                    color = if (running) Green else Gold,
+                    fontSize = 21.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    when {
+                        apiConnected -> "MARKET API CONNECTED"
+                        apiError != null -> "MARKET API NOT CONFIGURED"
+                        else -> "MARKET API NOT CONFIGURED"
+                    },
+                    color = Muted,
+                    fontSize = 10.sp,
+                    letterSpacing = 0.4.sp
                 )
             }
 
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF071A22)),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 7.dp)
-                    .border(1.dp, Cyan.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
-            ) {
-                Row(
-                    Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text("BOT STATUS", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
-                        Text(
-                            if (running) "RUNNING" else "STOPPED",
-                            color = if (running) Green else Gold,
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    MiniSparkline(running, Modifier.width(92.dp).height(34.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        when {
-                            apiConnected -> "API ONLINE"
-                            apiError != null -> "API STANDBY"
-                            else -> "PAPER READY"
-                        },
-                        color = if (apiConnected) Green else Muted,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
+            MiniSparkline(
+                running,
+                Modifier
+                    .width(105.dp)
+                    .height(58.dp)
+            )
         }
     }
 }
 
-@Composable
-private fun StatusChip(running: Boolean) {
-    Box(Modifier.border(1.dp, if (running) Green else Gold, RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 6.dp)) {
-        Text(if (running) "CONNECTED" else "READY", color = if (running) Green else Gold, fontSize = 10.sp)
-    }
-}
 
 @Composable
 private fun MetricCard(title: String, value: String, color: Color, modifier: Modifier, subtitle: String? = null) {
@@ -754,16 +809,59 @@ private fun MetricCard(title: String, value: String, color: Color, modifier: Mod
 
 @Composable
 private fun MarketCard(q: Quote, isLive: Boolean) {
-    Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        shape = RoundedCornerShape(22.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(196.dp)
+            .border(
+                1.dp,
+                if (q.symbol == "NIFTY 50") Border else Color.Transparent,
+                RoundedCornerShape(22.dp)
+            )
+    ) {
+        Row(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 26.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) { Text(q.symbol, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.width(7.dp)); Text(if (isLive) "LIVE" else "DEMO", color = if (isLive) Gold else Muted, fontSize = 8.sp) }
-                Text(q.exchange, color = Muted, fontSize = 10.sp)
-                Text("${if (q.change >= 0) "+" else ""}${q.change} (${q.changePct}%)", color = if (q.up) Green else Red, fontSize = 11.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        q.symbol,
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (isLive) "LIVE" else "DEMO",
+                        color = if (isLive) Gold else Muted,
+                        fontSize = 9.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+                Text(q.exchange, color = Muted, fontSize = 11.sp)
+                Spacer(Modifier.height(13.dp))
+                Text(
+                    "${if (q.change >= 0) "+" else ""}${q.change} (${q.changePct}%)",
+                    color = if (q.up) Green else Red,
+                    fontSize = 12.sp
+                )
             }
-            MiniSparkline(q.up, Modifier.width(115.dp).height(42.dp))
-            Spacer(Modifier.width(12.dp))
-            Text(String.format(Locale.US, "%,.2f", q.price), color = if (q.symbol == "NIFTY 50") Gold else Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+
+            MiniSparkline(q.up, Modifier.width(118.dp).height(58.dp))
+            Spacer(Modifier.width(16.dp))
+
+            Text(
+                String.format(Locale.US, "%,.2f", q.price),
+                color = if (q.symbol == "NIFTY 50") Gold else Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }

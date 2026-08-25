@@ -60,3 +60,10 @@ The market quotes shown in the UI are demo/paper values until the live market-da
 - Splash uses the supplied KT mark centered in the HUD.
 - Watchlist tabs and market-card layout follow the reference specification.
 - Paper trading and API architecture are preserved.
+
+
+## Reference-match final UI
+- Core screen matches the supplied reference composition: KT logo header, READY/CONNECTED chip, date/time, centered Nidhi artwork, bot status card, P&L/Last Trade, NIFTY card, controls and bottom navigation.
+- Nidhi hero artwork is displayed with `ContentScale.Fit` so bull, bear, robot and KT artwork are not cropped.
+- No top-right decorative logo and no NIDHI TELEMETRY panel.
+- Launcher and KT Core navigation use the KT mark.
