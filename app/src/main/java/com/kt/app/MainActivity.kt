@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -355,12 +356,16 @@ private fun SplashScreen() {
                         center = center,
                         style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
                     )
+                    val arcRadius = radius * 1.10f
+                    val arcSize = androidx.compose.ui.geometry.Size(arcRadius * 2f, arcRadius * 2f)
+                    val arcTopLeft = Offset(center.x - arcRadius, center.y - arcRadius)
                     drawArc(
                         color = Cyan.copy(alpha = 0.95f),
                         startAngle = sweep,
                         sweepAngle = 72f,
                         useCenter = false,
-                        radius = radius * 1.10f,
+                        topLeft = arcTopLeft,
+                        size = arcSize,
                         style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4.dp.toPx())
                     )
                     drawArc(
@@ -368,7 +373,8 @@ private fun SplashScreen() {
                         startAngle = sweep + 150f,
                         sweepAngle = 34f,
                         useCenter = false,
-                        radius = radius * 1.10f,
+                        topLeft = arcTopLeft,
+                        size = arcSize,
                         style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
                     )
 
