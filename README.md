@@ -52,3 +52,11 @@ The market quotes shown in the UI are demo/paper values until the live market-da
 - Transparent logo treatment prevents a white square on the dark HUD.
 - Animated cyan/gold HUD rings surround the KT mark.
 - Existing paper-trading and API architecture is preserved.
+
+
+## Sprint Final UI
+- KT Core hero now uses the full Nidhi robot/bull/bear artwork with cyan/gold HUD rings.
+- Core header follows the reference KT/Nidhi command-center layout.
+- Splash uses the supplied KT mark centered in the HUD.
+- Watchlist tabs and market-card layout follow the reference specification.
+- Paper trading and API architecture are preserved.

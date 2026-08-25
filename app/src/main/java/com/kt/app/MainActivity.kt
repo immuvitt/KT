@@ -8,7 +8,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import kotlinx.coroutines.launch
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -68,6 +67,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -506,28 +506,37 @@ private fun CoreScreen(
     val displayQuote = liveQuote?.let { Quote(it.symbol, "NSE", it.price, it.change, it.changePercent, it.change >= 0) } ?: quotes.first()
     val isLive = liveQuote != null
 
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(Bg).padding(16.dp)) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(Bg).padding(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("KT", color = Cyan, fontSize = 34.sp, fontWeight = FontWeight.Bold)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Nidhi • Command Center", color = Color.White, fontSize = 17.sp)
+                    Text("Nidhi Online", color = Color.White, fontSize = 16.sp)
                     Spacer(Modifier.width(5.dp))
                     Box(Modifier.size(7.dp).clip(RoundedCornerShape(8.dp)).background(Green))
                 }
-                Text("PAPER TRADING", color = Muted, fontSize = 10.sp, letterSpacing = 1.2.sp)
+                Text("AI TRADING ASSISTANT • PAPER MODE", color = Muted, fontSize = 9.sp, letterSpacing = 1.1.sp)
             }
             StatusChip(state.running)
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(7.dp))
             Image(
                 painter = painterResourceCompat(R.drawable.kt_logo_transparent),
                 contentDescription = "Kuber Tijori",
-                modifier = Modifier.size(62.dp),
+                modifier = Modifier.size(54.dp),
                 contentScale = ContentScale.Fit
             )
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(7.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Text(
+                SimpleDateFormat("dd MMM yyyy  •  HH:mm:ss", Locale.US).format(Date()),
+                color = Muted,
+                fontSize = 8.sp
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
         HeroBotCard(state.running, isLive, apiError)
 
         Spacer(Modifier.height(10.dp))
@@ -596,43 +605,114 @@ private fun CoreScreen(
 @Composable
 private fun HeroBotCard(running: Boolean, apiConnected: Boolean, apiError: String?) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = CardBg),
-        shape = RoundedCornerShape(22.dp),
-        modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(22.dp))
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF071326)),
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Border, RoundedCornerShape(20.dp))
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Icon(
-                    Icons.Default.SmartToy,
-                    contentDescription = "Nidhi AI robot",
-                    tint = Color.White,
-                    modifier = Modifier.size(34.dp)
-                )
-                Spacer(Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("BOT STATUS", color = Muted, fontSize = 11.sp, letterSpacing = 1.sp, maxLines = 1)
-                    Text(
-                        if (running) "RUNNING" else "STOPPED",
-                        color = if (running) Green else Gold,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        softWrap = false
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(188.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val center = Offset(size.width / 2f, size.height / 2f)
+                    val r = minOf(size.width, size.height) * 0.38f
+                    drawCircle(
+                        color = Cyan.copy(alpha = 0.10f),
+                        radius = r * 1.30f,
+                        center = center,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(1.dp.toPx())
                     )
+                    drawCircle(
+                        color = Cyan.copy(alpha = 0.35f),
+                        radius = r * 1.05f,
+                        center = center,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx())
+                    )
+                    drawArc(
+                        color = Cyan.copy(alpha = 0.95f),
+                        startAngle = -145f,
+                        sweepAngle = 95f,
+                        useCenter = false,
+                        topLeft = Offset(center.x - r * 1.18f, center.y - r * 1.18f),
+                        size = androidx.compose.ui.geometry.Size(r * 2.36f, r * 2.36f),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(4.dp.toPx())
+                    )
+                    drawArc(
+                        color = Gold.copy(alpha = 0.9f),
+                        startAngle = 25f,
+                        sweepAngle = 42f,
+                        useCenter = false,
+                        topLeft = Offset(center.x - r * 1.18f, center.y - r * 1.18f),
+                        size = androidx.compose.ui.geometry.Size(r * 2.36f, r * 2.36f),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx())
+                    )
+                    for (i in 0 until 18) {
+                        val a = Math.toRadians(i * 20.0)
+                        val inner = r * 1.08f
+                        val outer = r * if (i % 3 == 0) 1.18f else 1.13f
+                        drawLine(
+                            color = Cyan.copy(alpha = if (i % 3 == 0) 0.55f else 0.22f),
+                            start = Offset(
+                                center.x + kotlin.math.cos(a).toFloat() * inner,
+                                center.y + kotlin.math.sin(a).toFloat() * inner
+                            ),
+                            end = Offset(
+                                center.x + kotlin.math.cos(a).toFloat() * outer,
+                                center.y + kotlin.math.sin(a).toFloat() * outer
+                            ),
+                            strokeWidth = if (i % 3 == 0) 2.dp.toPx() else 1.dp.toPx()
+                        )
+                    }
+                }
+                Image(
+                    painter = painterResourceCompat(R.drawable.kt_robot),
+                    contentDescription = "Nidhi trading robot",
+                    modifier = Modifier
+                        .fillMaxWidth(0.82f)
+                        .height(176.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF071A22)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 7.dp)
+                    .border(1.dp, Cyan.copy(alpha = 0.55f), RoundedCornerShape(12.dp))
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("BOT STATUS", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+                        Text(
+                            if (running) "RUNNING" else "STOPPED",
+                            color = if (running) Green else Gold,
+                            fontSize = 19.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    MiniSparkline(running, Modifier.width(92.dp).height(34.dp))
+                    Spacer(Modifier.width(8.dp))
                     Text(
                         when {
-                            apiConnected -> "MARKET LINK ONLINE"
-                            apiError != null -> apiError.uppercase(Locale.US)
-                            else -> "PAPER ENGINE READY"
+                            apiConnected -> "API ONLINE"
+                            apiError != null -> "API STANDBY"
+                            else -> "PAPER READY"
                         },
                         color = if (apiConnected) Green else Muted,
                         fontSize = 8.sp,
-                        letterSpacing = 1.sp,
-                        maxLines = 1
+                        fontWeight = FontWeight.Medium
                     )
                 }
-                Spacer(Modifier.width(8.dp))
-                MiniSparkline(true, Modifier.width(105.dp).height(38.dp))
             }
         }
     }
@@ -685,7 +765,12 @@ private fun WatchlistScreen(modifier: Modifier) {
         Spacer(Modifier.height(8.dp))
         TabRowLike(listOf("NIFTY", "BANKNIFTY", "FINNIFTY", "STOCKS"), tab) { tab = it }
         Spacer(Modifier.height(10.dp))
-        val list = when (tab) { 0 -> quotes.take(1); 1 -> quotes.drop(1).take(1); 2 -> quotes.drop(2).take(1); else -> quotes.drop(3) }
+        val list = when (tab) {
+            0 -> quotes
+            1 -> quotes.filter { it.symbol.contains("BANK") || it.symbol == "HDFCBANK" }
+            2 -> quotes.filter { it.symbol.contains("FIN") }
+            else -> quotes.drop(3)
+        }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(9.dp)) { items(list) { QuoteRow(it) } }
     }
 }
