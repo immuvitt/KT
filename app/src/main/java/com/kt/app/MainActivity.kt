@@ -469,10 +469,27 @@ private fun BottomNav(screen: Screen, onSelect: (Screen) -> Unit) {
         Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
             NavItem(screen == Screen.WATCHLIST, { onSelect(Screen.WATCHLIST) }, Icons.Default.WatchLater, "Watchlist")
             NavItem(screen == Screen.ORDERS, { onSelect(Screen.ORDERS) }, Icons.Default.ListAlt, "Orders")
-            NavItem(screen == Screen.CORE, { onSelect(Screen.CORE) }, Icons.Default.AutoGraph, "KT Core")
+            LogoNavItem(screen == Screen.CORE, { onSelect(Screen.CORE) }, "KT Core")
             NavItem(screen == Screen.AI, { onSelect(Screen.AI) }, Icons.Default.Bolt, "AI")
             NavItem(screen == Screen.POSITIONS, { onSelect(Screen.POSITIONS) }, Icons.Default.Work, "Positions")
         }
+    }
+}
+
+@Composable
+private fun LogoNavItem(selected: Boolean, onClick: () -> Unit, label: String) {
+    Column(
+        modifier = Modifier.width(72.dp).fillMaxSize().clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Image(
+            painter = painterResourceCompat(R.drawable.kt_logo_transparent),
+            contentDescription = label,
+            modifier = Modifier.size(27.dp),
+            contentScale = ContentScale.Fit
+        )
+        Text(label, fontSize = 9.sp, color = if (selected) Cyan else Muted)
     }
 }
 
@@ -509,22 +526,20 @@ private fun CoreScreen(
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(Bg).padding(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("KT", color = Cyan, fontSize = 34.sp, fontWeight = FontWeight.Bold)
+                Image(
+                    painter = painterResourceCompat(R.drawable.kt_logo_transparent),
+                    contentDescription = "KT",
+                    modifier = Modifier.size(54.dp),
+                    contentScale = ContentScale.Fit
+                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Nidhi Online", color = Color.White, fontSize = 16.sp)
+                    Text("Nidhi • Command Center", color = Color.White, fontSize = 16.sp)
                     Spacer(Modifier.width(5.dp))
                     Box(Modifier.size(7.dp).clip(RoundedCornerShape(8.dp)).background(Green))
                 }
-                Text("AI TRADING ASSISTANT • PAPER MODE", color = Muted, fontSize = 9.sp, letterSpacing = 1.1.sp)
+                Text("PAPER TRADING", color = Muted, fontSize = 10.sp, letterSpacing = 1.2.sp)
             }
             StatusChip(state.running)
-            Spacer(Modifier.width(7.dp))
-            Image(
-                painter = painterResourceCompat(R.drawable.kt_logo_transparent),
-                contentDescription = "Kuber Tijori",
-                modifier = Modifier.size(54.dp),
-                contentScale = ContentScale.Fit
-            )
         }
 
         Spacer(Modifier.height(7.dp))
