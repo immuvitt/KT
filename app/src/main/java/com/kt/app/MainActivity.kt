@@ -8,7 +8,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -42,7 +41,6 @@ import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TrendingUp
@@ -62,12 +60,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -227,7 +222,6 @@ private fun KTApp() {
         showSplash = false
     }
 
-    // API layer is wired now, but polling stays disabled until a real provider URL is configured.
     LaunchedEffect(state.running) {
         if (MARKET_BASE_URL.contains("YOUR-MARKET-DATA-API")) {
             apiError = "Market API not configured"
@@ -259,11 +253,7 @@ private fun KTApp() {
                     Screen.WATCHLIST -> WatchlistScreen(Modifier.padding(padding))
                     Screen.ORDERS -> OrdersScreen(
                         state,
-                        { result ->
-                            if (result is OrderResult.Success) {
-                                state = result.state.also(store::save)
-                            }
-                        },
+                        { result -> if (result is OrderResult.Success) state = result.state.also(store::save) },
                         Modifier.padding(padding)
                     )
                     Screen.CORE -> CoreScreen(
@@ -271,25 +261,18 @@ private fun KTApp() {
                         initialCapital = store.initialCapital(),
                         liveQuote = liveQuote,
                         apiError = apiError,
-                        onStart = {
-                            state = state.copy(running = true).also(store::save)
-                        },
-                        onStop = {
-                            state = state.copy(running = false).also(store::save)
-                        },
+                        onStart = { state = state.copy(running = true).also(store::save) },
+                        onStop = { state = state.copy(running = false).also(store::save) },
                         onRefresh = {
                             state = store.load()
                             if (!MARKET_BASE_URL.contains("YOUR-MARKET-DATA-API")) {
                                 scope.launch {
                                     repository.getNiftyQuote()
-                                        .onSuccess {
-                                            liveQuote = it
-                                            apiError = null
-                                        }
-                                        .onFailure {
-                                            apiError = it.message ?: "Market API unavailable"
-                                        }
+                                        .onSuccess { liveQuote = it; apiError = null }
+                                        .onFailure { apiError = it.message ?: "Market API unavailable" }
                                 }
+                            } else {
+                                apiError = "Market API not configured"
                             }
                         },
                         onReset = {
@@ -311,6 +294,16 @@ private fun KTApp() {
 @Composable
 private fun SplashScreen() {
     var binary by remember { mutableStateOf("0100101010011010010110010100101101") }
+    val hudTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "nidhiHud")
+    val sweep by hudTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            androidx.compose.animation.core.tween(2800, easing = androidx.compose.animation.core.LinearEasing),
+            androidx.compose.animation.core.RepeatMode.Restart
+        ),
+        label = "hudSweep"
+    )
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -339,13 +332,71 @@ private fun SplashScreen() {
             )
             Spacer(Modifier.height(22.dp))
 
-            // Transparent PNG: the black square from the previous splash is removed.
-            Image(
-                painter = painterResourceCompat(R.drawable.kt_logo_transparent),
-                contentDescription = "Kuber Tijori",
-                modifier = Modifier.size(285.dp),
-                contentScale = ContentScale.Fit
-            )
+            // KT logo centered inside the Nidhi HUD. The uploaded logo is transparent,
+            // so the HUD rings remain visible around it without a white square.
+            Box(
+                modifier = Modifier.size(300.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val center = Offset(size.width / 2f, size.height / 2f)
+                    val radius = size.minDimension * 0.40f
+
+                    // Outer technical rings.
+                    drawCircle(
+                        color = Cyan.copy(alpha = 0.14f),
+                        radius = radius * 1.25f,
+                        center = center,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+                    )
+                    drawCircle(
+                        color = Cyan.copy(alpha = 0.45f),
+                        radius = radius,
+                        center = center,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+                    )
+                    drawArc(
+                        color = Cyan.copy(alpha = 0.95f),
+                        startAngle = sweep,
+                        sweepAngle = 72f,
+                        useCenter = false,
+                        radius = radius * 1.10f,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4.dp.toPx())
+                    )
+                    drawArc(
+                        color = Gold.copy(alpha = 0.80f),
+                        startAngle = sweep + 150f,
+                        sweepAngle = 34f,
+                        useCenter = false,
+                        radius = radius * 1.10f,
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
+                    )
+
+                    // Small HUD tick marks.
+                    for (i in 0 until 24) {
+                        val angle = Math.toRadians((i * 15.0))
+                        val inner = radius * 1.04f
+                        val outer = if (i % 3 == 0) radius * 1.15f else radius * 1.10f
+                        val x1 = center.x + kotlin.math.cos(angle).toFloat() * inner
+                        val y1 = center.y + kotlin.math.sin(angle).toFloat() * inner
+                        val x2 = center.x + kotlin.math.cos(angle).toFloat() * outer
+                        val y2 = center.y + kotlin.math.sin(angle).toFloat() * outer
+                        drawLine(
+                            color = Cyan.copy(alpha = if (i % 3 == 0) 0.55f else 0.22f),
+                            start = Offset(x1, y1),
+                            end = Offset(x2, y2),
+                            strokeWidth = if (i % 3 == 0) 2.dp.toPx() else 1.dp.toPx()
+                        )
+                    }
+                }
+
+                Image(
+                    painter = painterResourceCompat(R.drawable.kt_hud_center),
+                    contentDescription = "KT logo",
+                    modifier = Modifier.size(148.dp),
+                    contentScale = ContentScale.Fit
+                )
+            }
 
             Spacer(Modifier.height(8.dp))
             Text(
@@ -429,46 +480,104 @@ private fun NavItem(selected: Boolean, onClick: () -> Unit, icon: androidx.compo
 }
 
 @Composable
-private fun CoreScreen(state: PaperState, initialCapital: Double, liveQuote: MarketQuote?, apiError: String?, onStart: () -> Unit, onStop: () -> Unit, onRefresh: () -> Unit, onReset: () -> Unit, onOrders: () -> Unit, modifier: Modifier) {
+private fun CoreScreen(
+    state: PaperState,
+    initialCapital: Double,
+    liveQuote: MarketQuote?,
+    apiError: String?,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onRefresh: () -> Unit,
+    onReset: () -> Unit,
+    onOrders: () -> Unit,
+    modifier: Modifier
+) {
     val pnl = totalPnl(state)
     val last = state.orders.firstOrNull()
+    val displayQuote = liveQuote?.let { Quote(it.symbol, "NSE", it.price, it.change, it.changePercent, it.change >= 0) } ?: quotes.first()
+    val isLive = liveQuote != null
+
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).background(Bg).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("KT", color = Cyan, fontSize = 34.sp, fontWeight = FontWeight.Bold)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Nidhi • Command Center", color = Color.White, fontSize = 17.sp)
-                    Spacer(Modifier.width(5.dp)); Box(Modifier.size(7.dp).clip(RoundedCornerShape(8.dp)).background(Green))
+                    Spacer(Modifier.width(5.dp))
+                    Box(Modifier.size(7.dp).clip(RoundedCornerShape(8.dp)).background(Green))
                 }
                 Text("PAPER TRADING", color = Muted, fontSize = 10.sp, letterSpacing = 1.2.sp)
             }
             StatusChip(state.running)
             Spacer(Modifier.width(8.dp))
-            Image(painter = painterResourceCompat(R.drawable.kt_logo_transparent), contentDescription = "Kuber Tijori", modifier = Modifier.size(62.dp), contentScale = ContentScale.Fit)
+            Image(
+                painter = painterResourceCompat(R.drawable.kt_logo_transparent),
+                contentDescription = "Kuber Tijori",
+                modifier = Modifier.size(62.dp),
+                contentScale = ContentScale.Fit
+            )
         }
+
         Spacer(Modifier.height(14.dp))
-        HeroBotCard(state.running, liveQuote != null, apiError)
-        Spacer(Modifier.height(8.dp))
-        HudTelemetry(liveQuote != null)
+        HeroBotCard(state.running, isLive, apiError)
+
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard("TODAY'S P&L", signedMoney(pnl), if (pnl >= 0) Green else Red, Modifier.weight(1f))
-            MetricCard("LAST TRADE", last?.let { "${it.side} ${it.symbol}" } ?: "--", Color.White, Modifier.weight(1f), last?.let { "${it.quantity} @ ${money(it.price)}" } ?: "No trades yet")
+            MetricCard(
+                "LAST TRADE",
+                last?.let { "${it.side} ${it.symbol}" } ?: "--",
+                Color.White,
+                Modifier.weight(1f),
+                last?.let { "${it.quantity} @ ${money(it.price)}" } ?: "No trades yet"
+            )
         }
+
         Spacer(Modifier.height(10.dp))
-        MarketCard(liveQuote?.let { Quote(it.symbol, "API", it.price, it.change, it.changePercent, it.change >= 0) } ?: quotes.first())
+        MarketCard(displayQuote, isLive)
+
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = onStart, Modifier.weight(1f).height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = Cyan), shape = RoundedCornerShape(22.dp)) { Icon(Icons.Default.PlayArrow, null, tint = Color.Black); Spacer(Modifier.width(5.dp)); Text("Start Bot", color = Color.Black, fontWeight = FontWeight.Bold) }
-            OutlinedButton(onClick = onStop, Modifier.weight(1f).height(48.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold), shape = RoundedCornerShape(22.dp)) { Icon(Icons.Default.Stop, null); Spacer(Modifier.width(5.dp)); Text("Stop Bot") }
+            Button(
+                onClick = onStart,
+                modifier = Modifier.weight(1f).height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Cyan),
+                shape = RoundedCornerShape(22.dp)
+            ) {
+                Icon(Icons.Default.PlayArrow, null, tint = Color.Black)
+                Spacer(Modifier.width(5.dp))
+                Text("Start Bot", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+            OutlinedButton(
+                onClick = onStop,
+                modifier = Modifier.weight(1f).height(48.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold),
+                shape = RoundedCornerShape(22.dp)
+            ) {
+                Icon(Icons.Default.Stop, null)
+                Spacer(Modifier.width(5.dp))
+                Text("Stop Bot")
+            }
         }
+
         Spacer(Modifier.height(9.dp))
-        Button(onClick = onRefresh, Modifier.fillMaxWidth().height(44.dp), colors = ButtonDefaults.buttonColors(containerColor = Gold), shape = RoundedCornerShape(18.dp)) { Icon(Icons.Default.Refresh, null, tint = Color.Black); Spacer(Modifier.width(6.dp)); Text("Refresh Data", color = Color.Black, fontWeight = FontWeight.Bold) }
+        Button(
+            onClick = onRefresh,
+            modifier = Modifier.fillMaxWidth().height(44.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Gold),
+            shape = RoundedCornerShape(18.dp)
+        ) {
+            Icon(Icons.Default.Refresh, null, tint = Color.Black)
+            Spacer(Modifier.width(6.dp))
+            Text("Refresh Data", color = Color.Black, fontWeight = FontWeight.Bold)
+        }
+
         Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(onClick = onOrders, Modifier.weight(1f), shape = RoundedCornerShape(18.dp)) { Text("New / View Orders") }
             OutlinedButton(onClick = onReset, Modifier.weight(1f), shape = RoundedCornerShape(18.dp)) { Text("Reset") }
         }
+
         Spacer(Modifier.height(16.dp))
         Text("Virtual capital: ${money(initialCapital)}", color = Muted, fontSize = 12.sp)
         Text("Paper engine • local persistence • no broker connection", color = Cyan, fontSize = 11.sp)
@@ -477,10 +586,19 @@ private fun CoreScreen(state: PaperState, initialCapital: Double, liveQuote: Mar
 
 @Composable
 private fun HeroBotCard(running: Boolean, apiConnected: Boolean, apiError: String?) {
-    Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(22.dp), modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(22.dp))) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = CardBg),
+        shape = RoundedCornerShape(22.dp),
+        modifier = Modifier.fillMaxWidth().border(1.dp, Border, RoundedCornerShape(22.dp))
+    ) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.SmartToy, contentDescription = "Nidhi AI robot", tint = Cyan, modifier = Modifier.size(30.dp))
+                Icon(
+                    Icons.Default.SmartToy,
+                    contentDescription = "Nidhi AI robot",
+                    tint = Color.White,
+                    modifier = Modifier.size(34.dp)
+                )
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("BOT STATUS", color = Muted, fontSize = 11.sp, letterSpacing = 1.sp, maxLines = 1)
@@ -500,64 +618,12 @@ private fun HeroBotCard(running: Boolean, apiConnected: Boolean, apiError: Strin
                         },
                         color = if (apiConnected) Green else Muted,
                         fontSize = 8.sp,
-                        letterSpacing = 1.sp
+                        letterSpacing = 1.sp,
+                        maxLines = 1
                     )
                 }
                 Spacer(Modifier.width(8.dp))
                 MiniSparkline(true, Modifier.width(105.dp).height(38.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun HudTelemetry(apiConnected: Boolean) {
-    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "ktHud")
-    val sweep by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-            androidx.compose.animation.core.tween(2600, easing = androidx.compose.animation.core.LinearEasing),
-            androidx.compose.animation.core.RepeatMode.Restart
-        ),
-        label = "hudSweep"
-    )
-
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF07111A)),
-        shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth().border(1.dp, Cyan.copy(alpha = .18f), RoundedCornerShape(16.dp))
-    ) {
-        Box(Modifier.fillMaxWidth().height(72.dp)) {
-            Canvas(Modifier.fillMaxSize()) {
-                val step = 32.dp.toPx()
-                var x = 0f
-                while (x < size.width) {
-                    drawLine(Cyan.copy(alpha = .035f), Offset(x, 0f), Offset(x, size.height))
-                    x += step
-                }
-                var y = 0f
-                while (y < size.height) {
-                    drawLine(Cyan.copy(alpha = .035f), Offset(0f, y), Offset(size.width, y))
-                    y += step
-                }
-                drawArc(
-                    color = Cyan.copy(alpha = .7f),
-                    startAngle = sweep,
-                    sweepAngle = 75f,
-                    useCenter = false,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx())
-                )
-            }
-            Column(Modifier.padding(12.dp)) {
-                Text("NIDHI TELEMETRY", color = Cyan, fontSize = 9.sp, letterSpacing = 1.5.sp)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    if (apiConnected) "MARKET FEED • LINKED • PAPER EXECUTION" else "0 1 0 0 1 0 1 0 0 0 1 • API STANDBY • PAPER MODE",
-                    color = Muted,
-                    fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace
-                )
             }
         }
     }
@@ -583,11 +649,11 @@ private fun MetricCard(title: String, value: String, color: Color, modifier: Mod
 }
 
 @Composable
-private fun MarketCard(q: Quote) {
+private fun MarketCard(q: Quote, isLive: Boolean) {
     Card(colors = CardDefaults.cardColors(containerColor = CardBg), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) { Text(q.symbol, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.width(7.dp)); Text("LIVE", color = Gold, fontSize = 8.sp) }
+                Row(verticalAlignment = Alignment.CenterVertically) { Text(q.symbol, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold); Spacer(Modifier.width(7.dp)); Text(if (isLive) "LIVE" else "DEMO", color = if (isLive) Gold else Muted, fontSize = 8.sp) }
                 Text(q.exchange, color = Muted, fontSize = 10.sp)
                 Text("${if (q.change >= 0) "+" else ""}${q.change} (${q.changePct}%)", color = if (q.up) Green else Red, fontSize = 11.sp)
             }

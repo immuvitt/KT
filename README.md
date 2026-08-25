@@ -45,3 +45,10 @@ gradlew.bat assembleDebug
 The current environment used to package this source project could not download Gradle from `services.gradle.org`, so an APK was **not** generated here. The project source and Gradle wrapper are included for local Android Studio/Gradle build.
 
 The market quotes shown in the UI are demo/paper values until the live market-data adapter is connected.
+
+
+## Sprint 1D UI update
+- Uses the supplied KT logo in the splash-screen HUD center.
+- Transparent logo treatment prevents a white square on the dark HUD.
+- Animated cyan/gold HUD rings surround the KT mark.
+- Existing paper-trading and API architecture is preserved.
