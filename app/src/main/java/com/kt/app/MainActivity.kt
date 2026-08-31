@@ -2,6 +2,10 @@ package com.kt.app
 
 import android.content.Context
 import android.os.Bundle
+import com.kt.app.data.market.MarketApi
+import com.kt.app.data.market.MarketApiConfig
+import com.kt.app.data.market.MarketQuote
+import com.kt.app.data.market.MarketRepository
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
@@ -42,7 +46,6 @@ import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TrendingUp
@@ -711,11 +714,11 @@ private fun BotStatusCard(
                 .padding(horizontal = 13.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.SmartToy,
+            Image(
+                painter = painterResourceCompat(R.drawable.nidhi_robot),
                 contentDescription = "Nidhi trading robot",
-                tint = Color.White,
-                modifier = Modifier.size(54.dp)
+                modifier = Modifier.size(74.dp),
+                contentScale = ContentScale.Fit
             )
 
             Spacer(Modifier.width(11.dp))

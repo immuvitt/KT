@@ -67,3 +67,9 @@ The market quotes shown in the UI are demo/paper values until the live market-da
 - Nidhi hero artwork is displayed with `ContentScale.Fit` so bull, bear, robot and KT artwork are not cropped.
 - No top-right decorative logo and no NIDHI TELEMETRY panel.
 - Launcher and KT Core navigation use the KT mark.
+
+## Latest cleanup
+- Restored the frozen Nidhi robot artwork in the Command Center.
+- Rebuilt the Android launcher icon for stronger small-size visibility.
+- Reorganized market code under `data/market`, HUD code under `ui/dashboard`, and presentation state under `viewmodel`.
+- Frozen premium UI remains the source of truth; no broker execution is enabled in this build.
